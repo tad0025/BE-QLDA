@@ -1,11 +1,23 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { AuthModule } from './module/auth/auth.module';
 import { CustomThrottlerGuard } from './core/security/throttler/custom-throttler.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+
+// Feature Modules
+import { AuthModule } from './module/auth/auth.module';
+import { MovieModule } from './module/movie/movie.module';
+import { BookingModule } from './module/booking/booking.module';
+import { CinemaModule } from './module/cinema/cinema.module';
+import { ConcessionModule } from './module/concession/concession.module';
+import { NotificationModule } from './module/notification/notification.module';
+import { PaymentModule } from './module/payment/payment.module';
+import { PromotionModule } from './module/promotion/promotion.module';
+import { ShowtimeModule } from './module/showtime/showtime.module';
+import { TicketModule } from './module/ticket/ticket.module';
+import { UsersModule } from './module/users/users.module';
 
 @Module({
   imports: [
@@ -37,6 +49,16 @@ import { ScheduleModule } from '@nestjs/schedule';
     }),
 
     AuthModule,
+    MovieModule,
+    BookingModule,
+    CinemaModule,
+    ConcessionModule,
+    NotificationModule,
+    PaymentModule,
+    PromotionModule,
+    ShowtimeModule,
+    TicketModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [

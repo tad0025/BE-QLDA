@@ -8,11 +8,14 @@ import { JwtStrategy } from '../../core/security/jwt/jwt.strategy';
 import { ConfigService } from '@nestjs/config';
 import { ENV_VARS } from 'src/constants/env.constants';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
+import { MailModule } from '../mails/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([]),
+    TypeOrmModule.forFeature([User]),
     PassportModule,
+    MailModule,
     CacheModule.register(),
     JwtModule.registerAsync({
       inject: [ConfigService],
