@@ -1,4 +1,10 @@
 export enum EUserRole {
   ADMIN = 'ADMIN',
-  USER = 'USER',
+  STAFF = 'STAFF',
+  CUSTOMER = 'CUSTOMER',
+}
+
+export enum EUserStatus {
+  ACTIVE = 'ACTIVE',
+  BLOCKED = 'BLOCKED',
 }

@@ -1,38 +1,56 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
-import { EUserRole } from '../../users/enums/user.enum';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn } from 'typeorm';
+import { EUserRole, EUserStatus } from '../enums/user.enum';
+import { Booking } from '../../booking/entities/booking.entity';
+import { SeatHold } from '../../booking/entities/seat-hold.entity';
+import { Notification } from '../../notification/entities/notification.entity';
 
 @Entity('users')
 export class User {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ unique: true })
-    email: string;
+  @Column()
+  fullName: string;
 
-    @Column({ select: false })
-    password: string;
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth: Date;
 
-    @Column({ nullable: true })
-    fullName: string;
+  @Column({ nullable: true })
+  gender: string;
 
-    @Column({ type: 'enum', enum: EUserRole, default: EUserRole.USER })
-    role: EUserRole;
+  @Column({ nullable: true })
+  phone: string;
 
-    @Column({ nullable: true })
-    avatarUrl: string;
+  @Column({ unique: true })
+  email: string;
 
-    @Column({ nullable: true })
-    phone: string;
+  @Column()
+  password: string;
 
-    @Column({ nullable: true })
-    gender: string;
+  @Column({ type: 'enum', enum: EUserRole })
+  role: EUserRole;
 
-    @Column({ nullable: true })
-    dateOfBirth: string;
+  @Column({ type: 'enum', enum: EUserStatus, default: EUserStatus.ACTIVE })
+  status: EUserStatus;
 
-    @Column({ default: 0 })
-    tokenVersion: number;
+  @Column({ default: 0 })
+  loyaltyPoints: number;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @Column({ nullable: true })
+  tokenVersion: number;
+
+  @OneToMany(() => Booking, (booking) => booking.user)
+  bookings: Booking[];
+
+  @OneToMany(() => Booking, (booking) => booking.staff)
+  staffBookings: Booking[];
+
+  @OneToMany(() => SeatHold, (seatHold) => seatHold.user)
+  seatHolds: SeatHold[];
+
+  @OneToMany(() => Notification, (notification) => notification.user)
+  notifications: Notification[];
 }
