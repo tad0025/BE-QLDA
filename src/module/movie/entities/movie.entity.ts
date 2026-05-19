@@ -1,0 +1,53 @@
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { EMovieStatus } from '../enums/movie.enum';
+import { Showtime } from '../../showtime/entities/showtime.entity';
+import { Promotion } from '../../promotion/entities/promotion.entity';
+
+@Entity('movies')
+export class Movie {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  title: string;
+
+  @Column()
+  genre: string;
+
+  @Column()
+  durationMinutes: number;
+
+  @Column({ nullable: true })
+  director: string;
+
+  @Column({ nullable: true })
+  cast: string;
+
+  @Column({ type: 'date', nullable: true })
+  releaseDate: Date;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ nullable: true })
+  language: string;
+
+  @Column({ nullable: true })
+  ageLimit: number;
+
+  @Column({ nullable: true })
+  posterUrl: string;
+
+  @Column({ nullable: true })
+  trailerUrl: string;
+
+  @Column({ type: 'enum', enum: EMovieStatus })
+  status: EMovieStatus;
+
+  @OneToMany(() => Showtime, (showtime) => showtime.movie)
+  showtimes: Showtime[];
+
+  @OneToMany(() => Promotion, (promotion) => promotion.movie)
+  promotions: Promotion[];
+}
+
