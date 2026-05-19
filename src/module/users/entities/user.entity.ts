@@ -39,7 +39,7 @@ export class User {
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ default: 0 })
   tokenVersion: number;
 
   @OneToMany(() => Booking, (booking) => booking.user)

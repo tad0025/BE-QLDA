@@ -94,6 +94,7 @@ export class AuthService {
       password: hashedPassword,
       fullName: email.split('@')[0],
       role: EUserRole.CUSTOMER,
+      tokenVersion: 0,
     });
 
     const savedUser = await this.userRepository.save(newUser);
