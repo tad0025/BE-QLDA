@@ -1,6 +1,6 @@
 export enum EBookingStatus {
   PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
+  PAID = 'PAID',
   CANCELLED = 'CANCELLED',
   EXPIRED = 'EXPIRED',
 }

@@ -1,12 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, Unique, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { EMovieFormat } from '../../movie/enums/movie.enum';
 import { Movie } from '../../movie/entities/movie.entity';
 import { Room } from '../../cinema/entities/room.entity';
 import { Booking } from '../../booking/entities/booking.entity';
 import { SeatHold } from '../../booking/entities/seat-hold.entity';
 import { TicketPrice } from '../../ticket/entities/ticket-price.entity';
+import { EShowtimeStatus } from '../enums/EShowTimeStatus.enum';
+import { Ticket } from 'src/module/ticket/entities/ticket.entity';
 
 @Entity('showtimes')
+@Unique(['roomId', 'publicStartTime'])
 export class Showtime {
   @PrimaryGeneratedColumn()
   id: number;
@@ -18,13 +21,40 @@ export class Showtime {
   roomId: number;
 
   @Column({ type: 'timestamp' })
-  startTime: Date;
+  publicStartTime: Date;
 
   @Column({ type: 'timestamp' })
-  endTime: Date;
+  movieStartTime: Date;
+
+  @Column({ type: 'timestamp' })
+  movieEndTime: Date;
+
+  @Column({ type: 'timestamp' })
+  roomReleaseTime: Date;
+
+  @Column({ type: 'integer' })
+  preShowMinutes: number;
+
+  @Column({ type: 'integer' })
+  exitBufferMinutes: number;
+
+  @Column({ type: 'integer' })
+  cleaningMinutes: number;
+
+  @Column({ type: 'integer' })
+  entryBufferMinutes: number;
 
   @Column({ type: 'enum', enum: EMovieFormat })
   format: EMovieFormat;
+
+  @Column({ type: 'enum', enum: EShowtimeStatus })
+  status: EShowtimeStatus;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @ManyToOne(() => Movie, (movie) => movie.showtimes)
   @JoinColumn({ name: 'movieId' })
@@ -42,5 +72,8 @@ export class Showtime {
 
   @OneToMany(() => TicketPrice, (ticketPrice) => ticketPrice.showtime)
   ticketPrices: TicketPrice[];
+
+  @OneToMany(() => Ticket, (ticket) => ticket.showtime)
+  tickets: Ticket[];
 }
 

@@ -1,9 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Unique } from 'typeorm';
 import { Booking } from '../../booking/entities/booking.entity';
 import { Seat } from '../../cinema/entities/seat.entity';
 import { TicketPrice } from './ticket-price.entity';
+import { Showtime } from 'src/module/showtime/entities/showtime.entity';
+import { ETicketStatus } from '../enums/ticket.enum';
 
 @Entity('tickets')
+@Unique(['showtimeId', 'seatId'])
 export class Ticket {
   @PrimaryGeneratedColumn()
   id: number;
@@ -17,6 +20,9 @@ export class Ticket {
   @Column()
   ticketPriceId: number;
 
+  @Column()
+  showtimeId: number;
+
   @Column({ nullable: true })
   qrCode: string;
 
@@ -28,6 +34,9 @@ export class Ticket {
 
   @Column({ type: 'timestamp', nullable: true })
   checkedInAt: Date;
+
+  @Column({ type: 'enum', enum: ETicketStatus, default: ETicketStatus.ACTIVE })
+  status: ETicketStatus;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
@@ -43,5 +52,8 @@ export class Ticket {
   @ManyToOne(() => TicketPrice, (ticketPrice) => ticketPrice.tickets)
   @JoinColumn({ name: 'ticketPriceId' })
   ticketPrice: TicketPrice;
-}
 
+  @ManyToOne(() => Showtime, (showtime) => showtime.tickets)
+  @JoinColumn({ name: 'showtimeId' })
+  showtime: Showtime;
+}

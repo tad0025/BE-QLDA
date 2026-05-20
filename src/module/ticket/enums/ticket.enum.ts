@@ -3,3 +3,8 @@ export enum EDayType {
   WEEKEND = 'WEEKEND',
 }
 
+export enum ETicketStatus {
+  ACTIVE = 'ACTIVE',
+  CANCELLED = 'CANCELLED',
+  USED = 'USED',
+}

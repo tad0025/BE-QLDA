@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Unique } from 'typeorm';
 import { ESeatHoldStatus } from '../enums/booking.enum';
 import { Booking } from './booking.entity';
 import { Showtime } from '../../showtime/entities/showtime.entity';
@@ -6,6 +6,7 @@ import { Seat } from '../../cinema/entities/seat.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('seat_holds')
+@Unique(['showtimeId', 'seatId'])
 export class SeatHold {
   @PrimaryGeneratedColumn()
   id: number;

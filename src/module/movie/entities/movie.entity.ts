@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { EMovieStatus } from '../enums/movie.enum';
 import { Showtime } from '../../showtime/entities/showtime.entity';
 import { Promotion } from '../../promotion/entities/promotion.entity';
@@ -25,6 +25,12 @@ export class Movie {
 
   @Column({ type: 'date', nullable: true })
   releaseDate: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @Column({ nullable: true })
   description: string;
