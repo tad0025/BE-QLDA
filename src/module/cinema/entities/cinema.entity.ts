@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Room } from './room.entity';
+import { ECinemaStatus } from '../enums/cinema.enum';
 
 @Entity('cinemas')
 export class Cinema {
@@ -14,6 +15,15 @@ export class Cinema {
 
   @Column({ nullable: true })
   phone: string;
+
+  @Column({ type: 'enum', enum: ECinemaStatus })
+  status: ECinemaStatus;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @Column({ nullable: true })
   email: string;

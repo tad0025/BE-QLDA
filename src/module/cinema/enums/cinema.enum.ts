@@ -13,7 +13,16 @@ export enum ESeatType {
 export enum ESeatStatus {
   EMPTY = 'EMPTY',
   MAINTENANCE = 'MAINTENANCE',
-  BOOKED = 'BOOKED',
-  HOLDING = 'HOLDING',
 }
 
+export enum ECinemaStatus {
+  ACTIVE = 'ACTIVE',
+  MAINTENANCE = 'MAINTENANCE',
+  INACTIVE = 'INACTIVE',
+}
+
+export enum ERoomStatus {
+  ACTIVE = 'ACTIVE',
+  MAINTENANCE = 'MAINTENANCE',
+  INACTIVE = 'INACTIVE',
+}

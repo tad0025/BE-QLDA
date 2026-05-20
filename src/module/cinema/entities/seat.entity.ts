@@ -1,10 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, Unique } from 'typeorm';
 import { ESeatStatus, ESeatType } from '../enums/cinema.enum';
 import { Room } from './room.entity';
 import { SeatHold } from '../../booking/entities/seat-hold.entity';
 import { Ticket } from '../../ticket/entities/ticket.entity';
 
 @Entity('seats')
+@Unique(['roomId', 'row', 'number'])
 export class Seat {
   @PrimaryGeneratedColumn()
   id: number;

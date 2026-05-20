@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, UpdateDateColumn, CreateDateColumn } from 'typeorm';
 import { EPaymentChannel, EPaymentMethod, EPaymentStatus } from '../enums/payment.enum';
 import { Booking } from '../../booking/entities/booking.entity';
 
@@ -18,6 +18,12 @@ export class Payment {
 
   @Column()
   amount: number;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @Column({ nullable: true })
   transactionCode: string;

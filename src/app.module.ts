@@ -6,6 +6,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 
+// Infrastructure Modules
+import { RedisModule } from './module/redis/redis.module';
+
 // Feature Modules
 import { AuthModule } from './module/auth/auth.module';
 import { MovieModule } from './module/movie/movie.module';
@@ -47,6 +50,8 @@ import { UsersModule } from './module/users/users.module';
         synchronize: true,
       }),
     }),
+
+    RedisModule,
 
     AuthModule,
     MovieModule,
