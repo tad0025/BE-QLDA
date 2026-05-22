@@ -1,0 +1,15 @@
+1. Cập nhật phim thì bị văng ra màn hình dăng nhập:
+        error
+        : 
+        {code: "SYSTEM_ERROR", message: "Cannot PATCH /movies/1"}
+        code
+        : 
+        "SYSTEM_ERROR"
+        message
+        : 
+        "Cannot PATCH /movies/1"
+        success
+        : 
+        false
+    ---> sai đường dẫn URL (khả nghi)
+2. 

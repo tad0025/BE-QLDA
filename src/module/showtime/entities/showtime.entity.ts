@@ -35,14 +35,8 @@ export class Showtime {
   @Column({ type: 'integer' })
   preShowMinutes: number;
 
-  @Column({ type: 'integer' })
-  exitBufferMinutes: number;
-
-  @Column({ type: 'integer' })
-  cleaningMinutes: number;
-
-  @Column({ type: 'integer' })
-  entryBufferMinutes: number;
+  @Column({ type: 'integer', default: 15 })
+  postMovieBufferMinutes: number;
 
   @Column({ type: 'enum', enum: EMovieFormat })
   format: EMovieFormat;
