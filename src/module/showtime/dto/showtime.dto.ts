@@ -18,18 +18,6 @@ export class CreateShowtimeDto {
   @IsNotEmpty()
   publicStartTime: string;
 
-  @IsDateString()
-  @IsNotEmpty()
-  movieStartTime: string;
-
-  @IsDateString()
-  @IsNotEmpty()
-  movieEndTime: string;
-
-  @IsDateString()
-  @IsNotEmpty()
-  roomReleaseTime: string;
-
   @Type(() => Number)
   @IsNumber()
   @IsOptional()
@@ -38,17 +26,7 @@ export class CreateShowtimeDto {
   @Type(() => Number)
   @IsNumber()
   @IsOptional()
-  exitBufferMinutes?: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  @IsOptional()
-  cleaningMinutes?: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  @IsOptional()
-  entryBufferMinutes?: number;
+  postMovieBufferMinutes?: number;
 
   @IsEnum(EMovieFormat)
   @IsNotEmpty()
@@ -64,18 +42,6 @@ export class UpdateShowtimeDto {
   @IsOptional()
   publicStartTime?: string;
 
-  @IsDateString()
-  @IsOptional()
-  movieStartTime?: string;
-
-  @IsDateString()
-  @IsOptional()
-  movieEndTime?: string;
-
-  @IsDateString()
-  @IsOptional()
-  roomReleaseTime?: string;
-
   @Type(() => Number)
   @IsNumber()
   @IsOptional()
@@ -84,17 +50,7 @@ export class UpdateShowtimeDto {
   @Type(() => Number)
   @IsNumber()
   @IsOptional()
-  exitBufferMinutes?: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  @IsOptional()
-  cleaningMinutes?: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  @IsOptional()
-  entryBufferMinutes?: number;
+  postMovieBufferMinutes?: number;
 
   @IsEnum(EMovieFormat)
   @IsOptional()
