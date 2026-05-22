@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
-import { ESeatType } from '../../cinema/enums/cinema.enum';
+import {ERoomType} from '../../cinema/enums/cinema.enum';
 import { EDayType } from '../enums/ticket.enum';
 import { Showtime } from '../../showtime/entities/showtime.entity';
 import { Ticket } from './ticket.entity';
@@ -12,8 +12,8 @@ export class TicketPrice {
   @Column()
   showtimeId: number;
 
-  @Column({ type: 'enum', enum: ESeatType })
-  seatType: ESeatType;
+  @Column({ type: 'enum', enum: ERoomType })
+  roomType: ERoomType;
 
   @Column({ type: 'enum', enum: EDayType })
   dayType: EDayType;
@@ -28,4 +28,3 @@ export class TicketPrice {
   @OneToMany(() => Ticket, (ticket) => ticket.ticketPrice)
   tickets: Ticket[];
 }
-
