@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsNotEmpty,
   IsString,
+  MinLength,
   registerDecorator,
   ValidationOptions,
   ValidationArguments,
@@ -42,5 +43,21 @@ export class ResetPasswordDto {
   @IsNotEmpty({ message: 'Vui lòng nhập mật khẩu xác nhận' })
   @IsString()
   @Match('newPassword', { message: 'Mật khẩu xác nhận không khớp' })
+  confirmPassword: string;
+}
+
+export class ChangePasswordDto {
+  @IsNotEmpty({ message: 'Vui long nhap mat khau cu' })
+  @IsString()
+  oldPassword: string;
+
+  @IsNotEmpty({ message: 'Vui long nhap mat khau moi' })
+  @IsString()
+  @MinLength(6, { message: 'Mat khau moi toi thieu 6 ky tu' })
+  newPassword: string;
+
+  @IsNotEmpty({ message: 'Vui long nhap xac nhan mat khau moi' })
+  @IsString()
+  @Match('newPassword', { message: 'Mat khau xac nhan khong khop' })
   confirmPassword: string;
 }

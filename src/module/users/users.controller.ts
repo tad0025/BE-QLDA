@@ -3,7 +3,7 @@ import {
   ParseIntPipe, UseGuards, HttpCode, HttpStatus, Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { UpdateUserStatusDto } from './dto/users.dto';
+import { UpdateProfileDto, UpdateUserStatusDto } from './dto/users.dto';
 import { JwtAuthGuard } from '../../core/security/jwt/jwt-auth.guard';
 import { RolesGuard } from '../../core/security/roles/roles.guard';
 import { Roles } from '../../core/security/roles/roles.decorator';
@@ -29,6 +29,13 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   async getProfile(@Request() req) {
     return this.usersService.getProfile(req.user.id);
+  }
+
+  @Put('profile')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(@Request() req, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(req.user.id, dto);
   }
 
   @Put(':id/status')

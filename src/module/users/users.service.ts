@@ -5,6 +5,7 @@ import { User } from './entities/user.entity';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 import { EUserStatus } from './enums/user.enum';
+import { UpdateProfileDto } from './dto/users.dto';
 
 @Injectable()
 export class UsersService {
@@ -42,5 +43,39 @@ export class UsersService {
       throw new CustomException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'Không tìm thấy người dùng');
     }
     return new ApiResponse(true, 'Lấy thông tin cá nhân thành công', user);
+  }
+
+  async updateProfile(userId: number, dto: UpdateProfileDto): Promise<ApiResponse<User>> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'Khong tim thay nguoi dung');
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (dto.fullName !== undefined) {
+      const fullName = dto.fullName.trim();
+      if (!fullName) {
+        throw new CustomException(HttpStatus.BAD_REQUEST, 'VALIDATION_FAILED', 'Vui long nhap ho va ten');
+      }
+      updateData.fullName = fullName;
+    }
+
+    if (dto.phone !== undefined) {
+      updateData.phone = dto.phone?.trim() || null;
+    }
+
+    if (dto.gender !== undefined) {
+      updateData.gender = dto.gender?.trim() || null;
+    }
+
+    if (dto.dateOfBirth !== undefined) {
+      updateData.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
+    }
+
+    Object.assign(user, updateData);
+
+    const updated = await this.userRepository.save(user);
+    return new ApiResponse(true, 'Cập nhật thông tin cá nhân thành công', updated);
   }
 }
