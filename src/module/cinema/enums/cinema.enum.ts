@@ -1,13 +1,8 @@
 export enum ERoomType {
   STANDARD = 'STANDARD',
+  COUPLE = 'COUPLE',
   VIP = 'VIP',
   IMAX = 'IMAX',
-}
-
-export enum ESeatType {
-  STANDARD = 'STANDARD',
-  VIP = 'VIP',
-  COUPLE = 'COUPLE',
 }
 
 export enum ESeatStatus {

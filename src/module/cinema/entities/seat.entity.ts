@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, Unique } from 'typeorm';
-import { ESeatStatus, ESeatType } from '../enums/cinema.enum';
 import { Room } from './room.entity';
 import { SeatHold } from '../../booking/entities/seat-hold.entity';
 import { Ticket } from '../../ticket/entities/ticket.entity';
+import {ESeatStatus} from "../enums/cinema.enum";
 
 @Entity('seats')
 @Unique(['roomId', 'row', 'number'])
@@ -22,10 +22,7 @@ export class Seat {
   @Column({ nullable: true })
   label: string;
 
-  @Column({ type: 'enum', enum: ESeatType })
-  seatType: ESeatType;
-
-  @Column({ type: 'enum', enum: ESeatStatus, default: ESeatStatus.EMPTY })
+  @Column({type: 'enum', enum: ESeatStatus, default: ESeatStatus.EMPTY})
   status: ESeatStatus;
 
   @ManyToOne(() => Room, (room) => room.seats)
