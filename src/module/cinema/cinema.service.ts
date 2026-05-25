@@ -4,12 +4,12 @@ import { Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
 import { Room } from './entities/room.entity';
 import { Seat } from './entities/seat.entity';
-import { CreateCinemaDto, UpdateCinemaDto } from './dto/cinema.dto';
+import { CreateCinemaDto, UpdateCinemaDto, GetCinemasQueryDto } from './dto/cinema.dto';
 import { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
 import { GenerateSeatsDto } from './dto/seat.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
-import { ECinemaStatus, ESeatType, ESeatStatus } from './enums/cinema.enum';
+import { ECinemaStatus, ESeatStatus } from './enums/cinema.enum';
 
 @Injectable()
 export class CinemaService {
@@ -25,21 +25,52 @@ export class CinemaService {
   // ─── CINEMA CRUD ──────────────────────────────────────────────────────
 
   async createCinema(dto: CreateCinemaDto): Promise<ApiResponse<Cinema>> {
+    const normalizedName = dto.name.trim();
+    const existing = await this.cinemaRepository
+      .createQueryBuilder('cinema')
+      .where('LOWER(cinema.name) = LOWER(:name)', { name: normalizedName })
+      .getOne();
+    if (existing) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'CINEMA_NAME_EXISTS', 'Tên rạp đã tồn tại');
+    }
+
     const cinema = this.cinemaRepository.create({
       ...dto,
+      name: normalizedName,
+      address: dto.address.trim(),
+      phone: dto.phone?.trim(),
+      email: dto.email?.trim(),
       status: dto.status || ECinemaStatus.ACTIVE,
     });
     const saved = await this.cinemaRepository.save(cinema);
     return new ApiResponse(true, 'Tạo rạp chiếu phim thành công', saved);
   }
 
-  async getAllCinemas(page: number = 1, pageSize: number = 10): Promise<ApiResponse<Cinema[]>> {
+  async getAllCinemas(query: GetCinemasQueryDto): Promise<ApiResponse<Cinema[]>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
     const skip = (page - 1) * pageSize;
-    const [cinemas, totalItems] = await this.cinemaRepository.findAndCount({
-      skip,
-      take: pageSize,
-      order: { id: 'DESC' },
-    });
+    const builder = this.cinemaRepository.createQueryBuilder('cinema');
+
+    if (query.name) {
+      builder.andWhere('LOWER(cinema.name) LIKE :name', { name: `%${query.name.toLowerCase()}%` });
+    }
+    if (query.address) {
+      builder.andWhere('LOWER(cinema.address) LIKE :address', { address: `%${query.address.toLowerCase()}%` });
+    }
+    if (query.phone) {
+      builder.andWhere('cinema.phone LIKE :phone', { phone: `%${query.phone}%` });
+    }
+    if (query.email) {
+      builder.andWhere('LOWER(cinema.email) LIKE :email', { email: `%${query.email.toLowerCase()}%` });
+    }
+
+    const [cinemas, totalItems] = await builder
+      .orderBy('cinema.id', 'DESC')
+      .skip(skip)
+      .take(pageSize)
+      .getManyAndCount();
+
     const totalPages = Math.ceil(totalItems / pageSize);
     const response = new ApiResponse(true, 'Lấy danh sách rạp thành công', cinemas);
     response.pagination = { page: Number(page), pageSize: Number(pageSize), totalItems, totalPages };
@@ -62,7 +93,25 @@ export class CinemaService {
     if (!cinema) {
       throw new CustomException(HttpStatus.NOT_FOUND, 'CINEMA_NOT_FOUND', 'Không tìm thấy rạp chiếu phim');
     }
-    Object.assign(cinema, dto);
+
+    if (dto.name) {
+      const normalizedName = dto.name.trim();
+      const existing = await this.cinemaRepository
+        .createQueryBuilder('cinema')
+        .where('LOWER(cinema.name) = LOWER(:name)', { name: normalizedName })
+        .andWhere('cinema.id != :id', { id })
+        .getOne();
+      if (existing) {
+        throw new CustomException(HttpStatus.BAD_REQUEST, 'CINEMA_NAME_EXISTS', 'Tên rạp đã tồn tại');
+      }
+      cinema.name = normalizedName;
+    }
+
+    if (dto.address) cinema.address = dto.address.trim();
+    if (dto.phone !== undefined) cinema.phone = dto.phone?.trim();
+    if (dto.email !== undefined) cinema.email = dto.email?.trim();
+    if (dto.status !== undefined) cinema.status = dto.status;
+
     const updated = await this.cinemaRepository.save(cinema);
     return new ApiResponse(true, 'Cập nhật rạp thành công', updated);
   }
@@ -134,7 +183,6 @@ export class CinemaService {
   }
 
   // ─── SEAT OPERATIONS ──────────────────────────────────────────────────
-
   async generateSeats(roomId: number, dto: GenerateSeatsDto): Promise<ApiResponse<Seat[]>> {
     const room = await this.roomRepository.findOne({ where: { id: roomId } });
     if (!room) {
@@ -145,7 +193,6 @@ export class CinemaService {
     await this.seatRepository.delete({ roomId });
 
     const seats: Seat[] = [];
-    const seatType = dto.defaultSeatType || ESeatType.STANDARD;
 
     for (let r = 0; r < dto.rows; r++) {
       const rowLabel = String.fromCharCode(65 + r); // A, B, C, ...
@@ -155,7 +202,6 @@ export class CinemaService {
           row: rowLabel,
           number: c,
           label: `${rowLabel}${c}`,
-          seatType,
           status: ESeatStatus.EMPTY,
         });
         seats.push(seat);
@@ -182,4 +228,6 @@ export class CinemaService {
     });
     return new ApiResponse(true, 'Lấy danh sách ghế thành công', seats);
   }
+
+
 }

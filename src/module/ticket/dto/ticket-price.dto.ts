@@ -1,7 +1,7 @@
 import { IsNumber, IsNotEmpty, IsEnum, IsOptional, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ESeatType } from '../../cinema/enums/cinema.enum';
 import { EDayType } from '../enums/ticket.enum';
+import {ERoomType} from "../../cinema/enums/cinema.enum";
 
 export class CreateTicketPriceDto {
   @Type(() => Number)
@@ -9,13 +9,13 @@ export class CreateTicketPriceDto {
   @IsNotEmpty()
   showtimeId: number;
 
-  @IsEnum(ESeatType)
-  @IsNotEmpty()
-  seatType: ESeatType;
-
   @IsEnum(EDayType)
   @IsNotEmpty()
   dayType: EDayType;
+
+  @IsEnum(ERoomType)
+  @IsOptional()
+  roomType?: ERoomType;
 
   @Type(() => Number)
   @IsNumber()
@@ -29,9 +29,9 @@ export class UpdateTicketPriceDto {
   @IsOptional()
   price?: number;
 
-  @IsEnum(ESeatType)
+  @IsEnum(ERoomType)
   @IsOptional()
-  seatType?: ESeatType;
+  roomType?: ERoomType;
 
   @IsEnum(EDayType)
   @IsOptional()
@@ -51,9 +51,9 @@ export class BulkCreateTicketPriceDto {
 }
 
 export class TicketPriceItem {
-  @IsEnum(ESeatType)
+  @IsEnum(ERoomType)
   @IsNotEmpty()
-  seatType: ESeatType;
+  roomType: ERoomType;
 
   @IsEnum(EDayType)
   @IsNotEmpty()

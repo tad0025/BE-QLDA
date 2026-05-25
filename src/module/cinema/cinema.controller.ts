@@ -3,7 +3,7 @@ import {
   ParseIntPipe, Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { CinemaService } from './cinema.service';
-import { CreateCinemaDto, UpdateCinemaDto } from './dto/cinema.dto';
+import { CreateCinemaDto, UpdateCinemaDto, GetCinemasQueryDto } from './dto/cinema.dto';
 import { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
 import { GenerateSeatsDto } from './dto/seat.dto';
 import { JwtAuthGuard } from '../../core/security/jwt/jwt-auth.guard';
@@ -27,11 +27,8 @@ export class CinemaController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async getAllCinemas(
-    @Query('page') page: number = 1,
-    @Query('pageSize') pageSize: number = 10,
-  ) {
-    return this.cinemaService.getAllCinemas(page, pageSize);
+  async getAllCinemas(@Query() query: GetCinemasQueryDto) {
+    return this.cinemaService.getAllCinemas(query);
   }
 
   @Get(':id')

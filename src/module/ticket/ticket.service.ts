@@ -33,7 +33,7 @@ export class TicketService {
     const existing = await this.ticketPriceRepository.findOne({
       where: {
         showtimeId: dto.showtimeId,
-        seatType: dto.seatType,
+        roomType: dto.roomType,
         dayType: dto.dayType,
       },
     });
@@ -56,7 +56,7 @@ export class TicketService {
       const existing = await this.ticketPriceRepository.findOne({
         where: {
           showtimeId: dto.showtimeId,
-          seatType: item.seatType,
+          roomType: item.roomType,
           dayType: item.dayType,
         },
       });
@@ -67,7 +67,7 @@ export class TicketService {
       } else {
         const ticketPrice = this.ticketPriceRepository.create({
           showtimeId: dto.showtimeId,
-          seatType: item.seatType,
+          roomType: item.roomType,
           dayType: item.dayType,
           price: item.price,
         });
@@ -81,7 +81,7 @@ export class TicketService {
   async getTicketPricesByShowtimeId(showtimeId: number): Promise<ApiResponse<TicketPrice[]>> {
     const prices = await this.ticketPriceRepository.find({
       where: { showtimeId },
-      order: { seatType: 'ASC', dayType: 'ASC' },
+      order: { roomType: 'ASC', dayType: 'ASC' },
     });
     return new ApiResponse(true, 'Lấy danh sách giá vé thành công', prices);
   }
@@ -110,7 +110,7 @@ export class TicketService {
   async generateTicketsForBooking(booking: Booking): Promise<Ticket[]> {
     const seatHolds = await this.seatHoldRepository.find({
       where: { bookingId: booking.id, status: ESeatHoldStatus.CONFIRMED },
-      relations: ['seat'],
+      relations: ['seat', 'seat.room'],
     });
 
     const tickets: Ticket[] = [];
@@ -126,7 +126,7 @@ export class TicketService {
       const ticketPrice = await this.ticketPriceRepository.findOne({
         where: {
           showtimeId: booking.showtimeId,
-          seatType: seat.seatType,
+          roomType: seat.room?.roomType,
           dayType: dayType as any,
         },
       });

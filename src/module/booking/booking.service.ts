@@ -107,6 +107,7 @@ export class BookingService {
     // Lấy thông tin ghế
     const seats = await this.seatRepository.find({
       where: { id: In(dto.seatIds) },
+      relations: ['room'],
     });
 
     // Xác định dayType
@@ -121,7 +122,7 @@ export class BookingService {
       const ticketPrice = await this.ticketPriceRepository.findOne({
         where: {
           showtimeId: dto.showtimeId,
-          seatType: seat.seatType,
+          roomType: seat.room?.roomType,
           dayType: dayType as any,
         },
       });
