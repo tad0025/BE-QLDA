@@ -5,14 +5,14 @@ import { ShowtimeService } from './showtime.service';
 import { ShowtimeController } from './showtime.controller';
 import { AuthModule } from '../auth/auth.module';
 import { Movie } from '../movie/entities/movie.entity';
+import { Room } from '../cinema/entities/room.entity';
+
+TypeOrmModule.forFeature([Showtime, Movie, Room]);
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Showtime, Movie]),
-    AuthModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Showtime, Movie, Room]), AuthModule],
   controllers: [ShowtimeController],
   providers: [ShowtimeService],
   exports: [ShowtimeService],
 })
-export class ShowtimeModule { }
+export class ShowtimeModule {}
