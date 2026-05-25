@@ -11,6 +11,7 @@ import { RedisModule } from './module/redis/redis.module';
 
 // Feature Modules
 import { AuthModule } from './module/auth/auth.module';
+import { HomeModule } from './module/home/home.module';
 import { MovieModule } from './module/movie/movie.module';
 import { BookingModule } from './module/booking/booking.module';
 import { CinemaModule } from './module/cinema/cinema.module';
@@ -54,6 +55,7 @@ import { UsersModule } from './module/users/users.module';
     RedisModule,
 
     AuthModule,
+    HomeModule,
     MovieModule,
     BookingModule,
     CinemaModule,

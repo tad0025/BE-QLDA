@@ -123,12 +123,17 @@ export class MovieService {
       id: movie.id,
       name: movie.title,
       imageUrl: movie.posterUrl,
+      posterUrl: movie.posterUrl,
       releaseDate: movie.releaseDate,
       genre: movie.genre,
       director: movie.director,
       cast: movie.cast,
       language: movie.language,
       ageLimit: movie.ageLimit,
+      durationMinutes: movie.durationMinutes,
+      description: movie.description,
+      trailerUrl: movie.trailerUrl,
+      status: movie.status,
     }));
 
     const response = new ApiResponse(
