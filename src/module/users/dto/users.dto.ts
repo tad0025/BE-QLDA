@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { EUserStatus } from '../enums/user.enum';
 import { Type } from 'class-transformer';
 
@@ -19,4 +19,23 @@ export class GetUsersQueryDto {
 export class UpdateUserStatusDto {
   @IsEnum(EUserStatus)
   status: EUserStatus;
+}
+
+export class UpdateProfileDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  fullName?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string | null;
+
+  @IsString()
+  @IsOptional()
+  gender?: string | null;
+
+  @IsDateString()
+  @IsOptional()
+  dateOfBirth?: string | null;
 }

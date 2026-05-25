@@ -11,7 +11,7 @@ import { SendOtpDto } from './dto/otp.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EUserRole } from '../users/enums/user.enum';
 import { MailerService } from '@nestjs-modules/mailer';
-import { ResetPasswordDto } from './dto/password.dto';
+import { ChangePasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { OtpPurpose } from './enums/otp.enum';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -210,6 +210,35 @@ export class AuthService {
     await this.userRepository.update({ email }, { password: hashedPassword });
 
     return new ApiResponse(true, 'Đặt lại mật khẩu thành công', null);
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<ApiResponse<null>> {
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'VALIDATION_FAILED', 'Mật khẩu xác nhận không khớp');
+    }
+
+    if (dto.oldPassword === dto.newPassword) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'VALIDATION_FAILED', 'Mật khẩu mới phải khác mật khẩu cũ');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'password'],
+    });
+
+    if (!user) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'Không tìm thấy người dùng');
+    }
+
+    const isOldPasswordValid = await bcrypt.compare(dto.oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'PASSWORD_INVALID', 'Mật khẩu cũ không đúng');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    await this.userRepository.update({ id: userId }, { password: hashedPassword });
+
+    return new ApiResponse(true, 'Đổi mật khẩu thành công', null);
   }
 
   async logout(userId: number): Promise<ApiResponse<null>> {

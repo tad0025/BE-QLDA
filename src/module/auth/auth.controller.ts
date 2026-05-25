@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { ResetPasswordDto } from './dto/password.dto';
+import { ChangePasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { JwtAuthGuard } from 'src/core/security/jwt/jwt-auth.guard';
 import { SendOtpDto } from './dto/otp.dto';
 import { ConfigService } from '@nestjs/config';
@@ -54,6 +54,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.forgotPassword(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password') // POST /auth/change-password
+  @HttpCode(HttpStatus.OK)
+  async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
