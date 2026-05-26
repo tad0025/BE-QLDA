@@ -7,6 +7,7 @@ import { Seat } from '../cinema/entities/seat.entity';
 import { TicketPrice } from '../ticket/entities/ticket-price.entity';
 import { ConcessionProduct } from '../concession/entities/concession-product.entity';
 import { Promotion } from '../promotion/entities/promotion.entity';
+import { Showtime } from '../showtime/entities/showtime.entity';
 import { BookingService } from './booking.service';
 import { BookingController } from './booking.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -19,6 +20,7 @@ import { AuthModule } from '../auth/auth.module';
       SeatHold,
       Seat,
       TicketPrice,
+      Showtime,
       ConcessionProduct,
       Promotion,
     ]),
