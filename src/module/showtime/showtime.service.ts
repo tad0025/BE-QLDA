@@ -53,8 +53,8 @@ export class ShowtimeService {
       .andWhere(
         '(showtime.publicStartTime < :roomRelease AND showtime.roomReleaseTime > :publicStart)',
         {
-          roomRelease: roomReleaseTime.toISOString(),
-          publicStart: publicStartTime.toISOString(),
+          roomRelease: roomReleaseTime,
+          publicStart: publicStartTime,
         },
       );
 
