@@ -8,15 +8,21 @@ import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 import { EShowtimeStatus } from './enums/EShowTimeStatus.enum';
 import { addMinutes } from 'date-fns';
+import { Room } from '../cinema/entities/room.entity';
+import { ERoomStatus } from '../cinema/enums/cinema.enum';
 
 @Injectable()
 export class ShowtimeService {
   constructor(
     @InjectRepository(Showtime)
     private readonly showtimeRepository: Repository<Showtime>,
+
     @InjectRepository(Movie)
     private readonly movieRepository: Repository<Movie>,
-  ) { }
+
+    @InjectRepository(Room)
+    private readonly roomRepository: Repository<Room>,
+  ) {}
 
   // ── Tính toán các mốc thời gian từ publicStartTime + movie.durationMinutes ──
   private calculateTimeSlots(
@@ -41,7 +47,9 @@ export class ShowtimeService {
     const qb = this.showtimeRepository
       .createQueryBuilder('showtime')
       .where('showtime.roomId = :roomId', { roomId })
-      .andWhere('showtime.status != :cancelled', { cancelled: EShowtimeStatus.CANCELLED })
+      .andWhere('showtime.status != :cancelled', {
+        cancelled: EShowtimeStatus.CANCELLED,
+      })
       .andWhere(
         '(showtime.publicStartTime < :roomRelease AND showtime.roomReleaseTime > :publicStart)',
         {
@@ -52,7 +60,9 @@ export class ShowtimeService {
 
     // Khi update, loại trừ chính suất chiếu đang sửa
     if (excludeShowtimeId) {
-      qb.andWhere('showtime.id != :excludeId', { excludeId: excludeShowtimeId });
+      qb.andWhere('showtime.id != :excludeId', {
+        excludeId: excludeShowtimeId,
+      });
     }
 
     return qb.getOne();
@@ -60,21 +70,54 @@ export class ShowtimeService {
 
   async create(dto: CreateShowtimeDto): Promise<ApiResponse<Showtime>> {
     // 1. Lookup movie để lấy durationMinutes
-    const movie = await this.movieRepository.findOne({ where: { id: dto.movieId } });
+    const movie = await this.movieRepository.findOne({
+      where: { id: dto.movieId },
+    });
     if (!movie) {
-      throw new CustomException(HttpStatus.NOT_FOUND, 'MOVIE_NOT_FOUND', 'Không tìm thấy phim');
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'MOVIE_NOT_FOUND',
+        'Không tìm thấy phim',
+      );
+    }
+
+    const room = await this.roomRepository.findOne({
+      where: { id: dto.roomId },
+    });
+    if (!room) {
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'ROOM_NOT_FOUND',
+        'Không tìm thấy phòng chiếu',
+      );
+    }
+
+    if (room.status !== ERoomStatus.ACTIVE) {
+      throw new CustomException(
+        HttpStatus.BAD_REQUEST,
+        'ROOM_NOT_ACTIVE',
+        'Phòng chiếu không ở trạng thái ACTIVE',
+      );
     }
 
     // 2. Tính toán các mốc thời gian
     const preShow = dto.preShowMinutes ?? 10;
     const postBuffer = dto.postMovieBufferMinutes ?? 15;
     const publicStart = new Date(dto.publicStartTime);
-    const { movieStartTime, movieEndTime, roomReleaseTime } = this.calculateTimeSlots(
-      publicStart, movie.durationMinutes, preShow, postBuffer,
-    );
+    const { movieStartTime, movieEndTime, roomReleaseTime } =
+      this.calculateTimeSlots(
+        publicStart,
+        movie.durationMinutes,
+        preShow,
+        postBuffer,
+      );
 
     // 3. Check trùng lịch: publicStartTime → roomReleaseTime
-    const conflicting = await this.checkConflict(dto.roomId, publicStart, roomReleaseTime);
+    const conflicting = await this.checkConflict(
+      dto.roomId,
+      publicStart,
+      roomReleaseTime,
+    );
     if (conflicting) {
       throw new CustomException(
         HttpStatus.BAD_REQUEST,
@@ -101,7 +144,10 @@ export class ShowtimeService {
     return new ApiResponse(true, 'Tạo suất chiếu thành công', saved);
   }
 
-  async findAll(page: number = 1, pageSize: number = 10): Promise<ApiResponse<Showtime[]>> {
+  async findAll(
+    page: number = 1,
+    pageSize: number = 10,
+  ): Promise<ApiResponse<Showtime[]>> {
     const skip = (page - 1) * pageSize;
     const [showtimes, totalItems] = await this.showtimeRepository.findAndCount({
       skip,
@@ -110,8 +156,17 @@ export class ShowtimeService {
       relations: ['movie', 'room', 'room.cinema'],
     });
     const totalPages = Math.ceil(totalItems / pageSize);
-    const response = new ApiResponse(true, 'Lấy danh sách suất chiếu thành công', showtimes);
-    response.pagination = { page: Number(page), pageSize: Number(pageSize), totalItems, totalPages };
+    const response = new ApiResponse(
+      true,
+      'Lấy danh sách suất chiếu thành công',
+      showtimes,
+    );
+    response.pagination = {
+      page: Number(page),
+      pageSize: Number(pageSize),
+      totalItems,
+      totalPages,
+    };
     return response;
   }
 
@@ -121,19 +176,34 @@ export class ShowtimeService {
       relations: ['movie', 'room', 'ticketPrices'],
     });
     if (!showtime) {
-      throw new CustomException(HttpStatus.NOT_FOUND, 'SHOWTIME_NOT_FOUND', 'Không tìm thấy suất chiếu');
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'SHOWTIME_NOT_FOUND',
+        'Không tìm thấy suất chiếu',
+      );
     }
-    return new ApiResponse(true, 'Lấy thông tin suất chiếu thành công', showtime);
+    return new ApiResponse(
+      true,
+      'Lấy thông tin suất chiếu thành công',
+      showtime,
+    );
   }
 
-  async update(id: number, dto: UpdateShowtimeDto): Promise<ApiResponse<Showtime>> {
+  async update(
+    id: number,
+    dto: UpdateShowtimeDto,
+  ): Promise<ApiResponse<Showtime>> {
     // 1. Tìm showtime hiện tại (kèm movie để lấy durationMinutes)
     const showtime = await this.showtimeRepository.findOne({
       where: { id },
       relations: ['movie'],
     });
     if (!showtime) {
-      throw new CustomException(HttpStatus.NOT_FOUND, 'SHOWTIME_NOT_FOUND', 'Không tìm thấy suất chiếu');
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'SHOWTIME_NOT_FOUND',
+        'Không tìm thấy suất chiếu',
+      );
     }
 
     // 2. Merge các field được gửi lên
@@ -141,16 +211,24 @@ export class ShowtimeService {
       ? new Date(dto.publicStartTime)
       : new Date(showtime.publicStartTime);
     const newPreShow = dto.preShowMinutes ?? showtime.preShowMinutes;
-    const newPostBuffer = dto.postMovieBufferMinutes ?? showtime.postMovieBufferMinutes;
+    const newPostBuffer =
+      dto.postMovieBufferMinutes ?? showtime.postMovieBufferMinutes;
 
     // 3. Tính lại các mốc thời gian
-    const { movieStartTime, movieEndTime, roomReleaseTime } = this.calculateTimeSlots(
-      newPublicStart, showtime.movie.durationMinutes, newPreShow, newPostBuffer,
-    );
+    const { movieStartTime, movieEndTime, roomReleaseTime } =
+      this.calculateTimeSlots(
+        newPublicStart,
+        showtime.movie.durationMinutes,
+        newPreShow,
+        newPostBuffer,
+      );
 
     // 4. Check trùng lịch (loại trừ chính nó)
     const conflicting = await this.checkConflict(
-      showtime.roomId, newPublicStart, roomReleaseTime, id,
+      showtime.roomId,
+      newPublicStart,
+      roomReleaseTime,
+      id,
     );
     if (conflicting) {
       throw new CustomException(
@@ -178,7 +256,11 @@ export class ShowtimeService {
   async remove(id: number): Promise<ApiResponse<null>> {
     const showtime = await this.showtimeRepository.findOne({ where: { id } });
     if (!showtime) {
-      throw new CustomException(HttpStatus.NOT_FOUND, 'SHOWTIME_NOT_FOUND', 'Không tìm thấy suất chiếu');
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'SHOWTIME_NOT_FOUND',
+        'Không tìm thấy suất chiếu',
+      );
     }
     await this.showtimeRepository.remove(showtime);
     return new ApiResponse(true, 'Xóa suất chiếu thành công');
@@ -193,7 +275,11 @@ export class ShowtimeService {
 
     // Nhóm theo ngày
     const grouped = this.groupByDate(showtimes);
-    return new ApiResponse(true, 'Lấy suất chiếu theo phim thành công', grouped);
+    return new ApiResponse(
+      true,
+      'Lấy suất chiếu theo phim thành công',
+      grouped,
+    );
   }
 
   async getByCinemaId(cinemaId: number): Promise<ApiResponse<any>> {
@@ -213,7 +299,9 @@ export class ShowtimeService {
   private groupByDate(showtimes: Showtime[]): Record<string, Showtime[]> {
     const grouped: Record<string, Showtime[]> = {};
     for (const showtime of showtimes) {
-      const dateKey = new Date(showtime.publicStartTime).toISOString().split('T')[0];
+      const dateKey = new Date(showtime.publicStartTime)
+        .toISOString()
+        .split('T')[0];
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
       }
