@@ -31,10 +31,10 @@ export class TicketController {
     return this.ticketService.bulkCreateTicketPrices(dto);
   }
 
-  @Get('prices/showtime/:showtimeId')
+  @Get('prices')
   @HttpCode(HttpStatus.OK)
-  async getTicketPricesByShowtimeId(@Param('showtimeId', ParseIntPipe) showtimeId: number) {
-    return this.ticketService.getTicketPricesByShowtimeId(showtimeId);
+  async getTicketPrices() {
+    return this.ticketService.getTicketPrices();
   }
 
   @Put('prices/:id')

@@ -32,7 +32,6 @@ export class TicketService {
   async createTicketPrice(dto: CreateTicketPriceDto): Promise<ApiResponse<TicketPrice>> {
     const existing = await this.ticketPriceRepository.findOne({
       where: {
-        showtimeId: dto.showtimeId,
         roomType: dto.roomType,
         dayType: dto.dayType,
       },
@@ -55,7 +54,6 @@ export class TicketService {
     for (const item of dto.prices) {
       const existing = await this.ticketPriceRepository.findOne({
         where: {
-          showtimeId: dto.showtimeId,
           roomType: item.roomType,
           dayType: item.dayType,
         },
@@ -66,7 +64,6 @@ export class TicketService {
         ticketPrices.push(existing);
       } else {
         const ticketPrice = this.ticketPriceRepository.create({
-          showtimeId: dto.showtimeId,
           roomType: item.roomType,
           dayType: item.dayType,
           price: item.price,
@@ -78,9 +75,8 @@ export class TicketService {
     return new ApiResponse(true, 'Cấu hình giá vé thành công', saved);
   }
 
-  async getTicketPricesByShowtimeId(showtimeId: number): Promise<ApiResponse<TicketPrice[]>> {
+  async getTicketPrices(): Promise<ApiResponse<TicketPrice[]>> {
     const prices = await this.ticketPriceRepository.find({
-      where: { showtimeId },
       order: { roomType: 'ASC', dayType: 'ASC' },
     });
     return new ApiResponse(true, 'Lấy danh sách giá vé thành công', prices);
@@ -125,11 +121,18 @@ export class TicketService {
       // Tìm giá vé tương ứng
       const ticketPrice = await this.ticketPriceRepository.findOne({
         where: {
-          showtimeId: booking.showtimeId,
           roomType: seat.room?.roomType,
           dayType: dayType as any,
         },
       });
+
+      if (!ticketPrice) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'TICKET_PRICE_NOT_FOUND',
+          'Chua cau hinh gia ve cho loai phong va ngay nay',
+        );
+      }
 
       const qrCode = this.generateQRCode();
 
@@ -137,8 +140,8 @@ export class TicketService {
         bookingId: booking.id,
         seatId: seat.id,
         showtimeId: booking.showtimeId,
-        ticketPriceId: ticketPrice?.id || 0,
-        price: ticketPrice?.price || 0,
+        ticketPriceId: ticketPrice.id,
+        price: ticketPrice.price,
         qrCode,
         status: ETicketStatus.ACTIVE,
         isCheckedIn: false,

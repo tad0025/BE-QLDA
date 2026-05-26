@@ -173,7 +173,7 @@ export class ShowtimeService {
   async findOne(id: number): Promise<ApiResponse<Showtime>> {
     const showtime = await this.showtimeRepository.findOne({
       where: { id },
-      relations: ['movie', 'room', 'ticketPrices'],
+      relations: ['movie', 'room'],
     });
     if (!showtime) {
       throw new CustomException(

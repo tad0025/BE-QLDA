@@ -4,7 +4,6 @@ import { Movie } from '../../movie/entities/movie.entity';
 import { Room } from '../../cinema/entities/room.entity';
 import { Booking } from '../../booking/entities/booking.entity';
 import { SeatHold } from '../../booking/entities/seat-hold.entity';
-import { TicketPrice } from '../../ticket/entities/ticket-price.entity';
 import { EShowtimeStatus } from '../enums/EShowTimeStatus.enum';
 import { Ticket } from 'src/module/ticket/entities/ticket.entity';
 
@@ -64,8 +63,6 @@ export class Showtime {
   @OneToMany(() => SeatHold, (seatHold) => seatHold.showtime)
   seatHolds: SeatHold[];
 
-  @OneToMany(() => TicketPrice, (ticketPrice) => ticketPrice.showtime)
-  ticketPrices: TicketPrice[];
 
   @OneToMany(() => Ticket, (ticket) => ticket.showtime)
   tickets: Ticket[];

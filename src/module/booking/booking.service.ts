@@ -14,6 +14,7 @@ import { TicketPrice } from '../ticket/entities/ticket-price.entity';
 import { ConcessionProduct } from '../concession/entities/concession-product.entity';
 import { Promotion } from '../promotion/entities/promotion.entity';
 import { EDiscountType } from '../promotion/enums/promotion.enum';
+import { Showtime } from '../showtime/entities/showtime.entity';
 
 @Injectable()
 export class BookingService {
@@ -28,6 +29,8 @@ export class BookingService {
     private readonly seatRepository: Repository<Seat>,
     @InjectRepository(TicketPrice)
     private readonly ticketPriceRepository: Repository<TicketPrice>,
+    @InjectRepository(Showtime)
+    private readonly showtimeRepository: Repository<Showtime>,
     @InjectRepository(ConcessionProduct)
     private readonly concessionProductRepository: Repository<ConcessionProduct>,
     @InjectRepository(Promotion)
@@ -111,9 +114,13 @@ export class BookingService {
     });
 
     // Xác định dayType
-    // Mặc định dùng ngày hiện tại, có thể cải thiện bằng cách lấy từ showtime
+    const showtime = await this.showtimeRepository.findOne({ where: { id: dto.showtimeId } });
+    if (!showtime) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'SHOWTIME_NOT_FOUND', 'Không tìm thấy suất chiếu');
+    }
+
     const now = new Date();
-    const dayOfWeek = now.getDay();
+    const dayOfWeek = new Date(showtime.publicStartTime).getDay();
     const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'WEEKEND' : 'WEEKDAY';
 
     // Tính tổng tiền vé
@@ -121,12 +128,18 @@ export class BookingService {
     for (const seat of seats) {
       const ticketPrice = await this.ticketPriceRepository.findOne({
         where: {
-          showtimeId: dto.showtimeId,
           roomType: seat.room?.roomType,
           dayType: dayType as any,
         },
       });
-      ticketTotal += ticketPrice?.price || 0;
+      if (!ticketPrice) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'TICKET_PRICE_NOT_FOUND',
+          'Chua cau hinh gia ve cho loai phong va ngay nay',
+        );
+      }
+      ticketTotal += ticketPrice.price;
     }
 
     // Tính tổng tiền bắp nước
