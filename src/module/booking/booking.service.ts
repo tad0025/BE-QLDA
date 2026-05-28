@@ -41,6 +41,19 @@ export class BookingService {
   // ─── SEAT HOLD ────────────────────────────────────────────────────────
 
   async holdSeats(userId: number, dto: HoldSeatsDto): Promise<ApiResponse<any>> {
+    // Kiểm tra showtime còn có thể đặt vé không
+    const showtime = await this.showtimeRepository.findOne({ where: { id: dto.showtimeId } });
+    if (!showtime) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'SHOWTIME_NOT_FOUND', 'Không tìm thấy suất chiếu');
+    }
+    if (showtime.status === 'COMPLETED' || showtime.status === 'CANCELLED') {
+      throw new CustomException(
+        HttpStatus.BAD_REQUEST,
+        'SHOWTIME_NOT_BOOKABLE',
+        'Suất chiếu này đã kết thúc hoặc bị huỷ, không thể đặt vé',
+      );
+    }
+
     const failedSeats: number[] = [];
     const successSeats: number[] = [];
 
@@ -54,7 +67,6 @@ export class BookingService {
     }
 
     if (failedSeats.length > 0) {
-      // Giải phóng ghế đã hold thành công nếu có ghế thất bại
       await this.redisService.releaseSeats(dto.showtimeId, successSeats);
       throw new CustomException(
         HttpStatus.BAD_REQUEST,
@@ -63,12 +75,10 @@ export class BookingService {
       );
     }
 
-    // Lưu log vào bảng seat_holds
     const now = new Date();
     const expiredAt = new Date(now.getTime() + 5 * 60 * 1000);
 
     for (const seatId of dto.seatIds) {
-      // Xóa hold cũ nếu có
       await this.seatHoldRepository.delete({
         showtimeId: dto.showtimeId,
         seatId,
@@ -117,6 +127,13 @@ export class BookingService {
     const showtime = await this.showtimeRepository.findOne({ where: { id: dto.showtimeId } });
     if (!showtime) {
       throw new CustomException(HttpStatus.NOT_FOUND, 'SHOWTIME_NOT_FOUND', 'Không tìm thấy suất chiếu');
+    }
+    if (showtime.status === 'COMPLETED' || showtime.status === 'CANCELLED') {
+      throw new CustomException(
+        HttpStatus.BAD_REQUEST,
+        'SHOWTIME_NOT_BOOKABLE',
+        'Suất chiếu này đã kết thúc hoặc bị huỷ, không thể đặt vé',
+      );
     }
 
     const now = new Date();

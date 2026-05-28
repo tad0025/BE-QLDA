@@ -26,6 +26,9 @@ export class Movie {
   @Column({ type: 'date', nullable: true })
   releaseDate: Date;
 
+  @Column({ type: 'date', nullable: true })
+  screeningEndDate: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 
