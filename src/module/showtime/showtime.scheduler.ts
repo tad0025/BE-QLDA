@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, In } from 'typeorm';
+import { Repository, LessThanOrEqual, In, Not } from 'typeorm';
 import { Showtime } from './entities/showtime.entity';
 import { Movie } from '../movie/entities/movie.entity';
 import { EShowtimeStatus } from './enums/EShowTimeStatus.enum';
@@ -23,6 +23,10 @@ export class ShowtimeSchedulerService {
    * Chạy mỗi phút — cập nhật trạng thái suất chiếu theo thời gian thực:
    *   SCHEDULED  → ACTIVE    : khi đã đến publicStartTime
    *   ACTIVE     → COMPLETED : khi đã qua roomReleaseTime
+   *
+   * Đồng thời đảm bảo movie COMING_SOON → NOW_SHOWING nếu có bất kỳ
+   * showtime nào đã ACTIVE hoặc COMPLETED (phòng trường hợp scheduler
+   * bị miss lúc showtime chuyển trạng thái).
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async syncShowtimeStatuses(): Promise<void> {
@@ -42,15 +46,6 @@ export class ShowtimeSchedulerService {
           toActivate.map((s) => s.id),
           { status: EShowtimeStatus.ACTIVE },
         );
-
-        // Tự động chuyển phim sang NOW_SHOWING nếu đang là COMING_SOON
-        const movieIdsToActivate = [...new Set(toActivate.map((s) => s.movieId))];
-        if (movieIdsToActivate.length > 0) {
-          await this.movieRepository.update(
-            { id: In(movieIdsToActivate), status: EMovieStatus.COMING_SOON },
-            { status: EMovieStatus.NOW_SHOWING },
-          );
-        }
 
         this.logger.log(
           `[Scheduler] Activated ${toActivate.length} showtime(s): [${toActivate.map((s) => s.id).join(', ')}]`,
@@ -74,14 +69,53 @@ export class ShowtimeSchedulerService {
           `[Scheduler] Completed ${toComplete.length} showtime(s): [${toComplete.map((s) => s.id).join(', ')}]`,
         );
       }
+
+      // 3. COMING_SOON → NOW_SHOWING: Nếu phim có BẤT KỲ showtime nào
+      //    đang ACTIVE hoặc đã COMPLETED → phim phải là NOW_SHOWING.
+      //    (Xử lý edge case: scheduler bị miss, hoặc showtime nhảy thẳng
+      //     SCHEDULED → COMPLETED khi BE restart)
+      const comingSoonMovies = await this.movieRepository.find({
+        where: { status: EMovieStatus.COMING_SOON },
+      });
+
+      if (comingSoonMovies.length > 0) {
+        const movieIdsToActivate: number[] = [];
+
+        for (const movie of comingSoonMovies) {
+          const hasStartedShowtime = await this.showtimeRepository.findOne({
+            where: {
+              movieId: movie.id,
+              status: In([EShowtimeStatus.ACTIVE, EShowtimeStatus.COMPLETED]),
+            },
+          });
+
+          if (hasStartedShowtime) {
+            movieIdsToActivate.push(movie.id);
+          }
+        }
+
+        if (movieIdsToActivate.length > 0) {
+          await this.movieRepository.update(
+            { id: In(movieIdsToActivate) },
+            { status: EMovieStatus.NOW_SHOWING },
+          );
+          this.logger.log(
+            `[Scheduler] Movies COMING_SOON → NOW_SHOWING: [${movieIdsToActivate.join(', ')}]`,
+          );
+        }
+      }
     } catch (error) {
       this.logger.error('[Scheduler] syncShowtimeStatuses failed', error);
     }
   }
 
   /**
-   * Chạy mỗi ngày lúc 00:05 — huỷ các suất chiếu SCHEDULED của phim đã hết screeningEndDate.
-   * Không huỷ ACTIVE/COMPLETED vì chúng đang hoặc đã diễn ra.
+   * Chạy mỗi ngày lúc 00:05 — xử lý phim hết hạn chiếu:
+   *
+   * Case A: screeningEndDate đã qua → huỷ SCHEDULED showtimes + movie STOPPED
+   * Case B: Phim NOW_SHOWING không còn showtime SCHEDULED/ACTIVE nào
+   *         (tất cả đều COMPLETED/CANCELLED) → movie STOPPED
+   *         (kể cả khi screeningEndDate = null)
    */
   @Cron('5 0 * * *')
   async cancelExpiredScreenings(): Promise<void> {
@@ -89,43 +123,83 @@ export class ShowtimeSchedulerService {
     today.setHours(0, 0, 0, 0);
 
     try {
-      // Tìm các phim đã hết hạn screeningEndDate (không null)
+      // ── Case A: screeningEndDate đã qua ──
       const expiredMovies = await this.movieRepository
         .createQueryBuilder('movie')
         .where('movie.screeningEndDate IS NOT NULL')
         .andWhere('movie.screeningEndDate < :today', { today })
+        .andWhere('movie.status != :stopped', { stopped: EMovieStatus.STOPPED })
         .getMany();
 
-      if (expiredMovies.length === 0) return;
+      if (expiredMovies.length > 0) {
+        const expiredMovieIds = expiredMovies.map((m) => m.id);
 
-      const expiredMovieIds = expiredMovies.map((m) => m.id);
+        // Huỷ các suất chiếu SCHEDULED (chưa diễn ra)
+        const toCancel = await this.showtimeRepository.find({
+          where: {
+            movieId: In(expiredMovieIds),
+            status: EShowtimeStatus.SCHEDULED,
+          },
+        });
 
-      // Chỉ huỷ các suất chiếu SCHEDULED (chưa diễn ra) của phim đã hết hạn
-      const toCancel = await this.showtimeRepository.find({
-        where: {
-          movieId: In(expiredMovieIds),
-          status: EShowtimeStatus.SCHEDULED,
-        },
-      });
+        if (toCancel.length > 0) {
+          await this.showtimeRepository.update(
+            toCancel.map((s) => s.id),
+            { status: EShowtimeStatus.CANCELLED },
+          );
+          this.logger.log(
+            `[Scheduler] Cancelled ${toCancel.length} scheduled showtime(s) for expired movies: [${expiredMovieIds.join(', ')}]`,
+          );
+        }
 
-      if (toCancel.length > 0) {
-        await this.showtimeRepository.update(
-          toCancel.map((s) => s.id),
-          { status: EShowtimeStatus.CANCELLED },
+        await this.movieRepository.update(
+          { id: In(expiredMovieIds) },
+          { status: EMovieStatus.STOPPED },
         );
         this.logger.log(
-          `[Scheduler] Cancelled ${toCancel.length} scheduled showtime(s) for expired movies: [${expiredMovieIds.join(', ')}]`,
+          `[Scheduler] Marked ${expiredMovies.length} movie(s) as STOPPED (screeningEndDate expired): [${expiredMovieIds.join(', ')}]`,
         );
       }
 
-      // Cập nhật EMovieStatus → STOPPED cho các phim đã hết screeningEndDate
-      await this.movieRepository.update(
-        { id: In(expiredMovieIds) },
-        { status: EMovieStatus.STOPPED },
-      );
-      this.logger.log(
-        `[Scheduler] Marked ${expiredMovies.length} movie(s) as STOPPED: [${expiredMovieIds.join(', ')}]`,
-      );
+      // ── Case B: Phim NOW_SHOWING mà tất cả showtime đã kết thúc ──
+      // (không còn showtime SCHEDULED hoặc ACTIVE nào)
+      const nowShowingMovies = await this.movieRepository.find({
+        where: { status: EMovieStatus.NOW_SHOWING },
+      });
+
+      if (nowShowingMovies.length > 0) {
+        const movieIdsToStop: number[] = [];
+
+        for (const movie of nowShowingMovies) {
+          // Kiểm tra có còn showtime nào chưa kết thúc
+          const pendingShowtime = await this.showtimeRepository.findOne({
+            where: {
+              movieId: movie.id,
+              status: In([EShowtimeStatus.SCHEDULED, EShowtimeStatus.ACTIVE]),
+            },
+          });
+
+          // Kiểm tra phim có ít nhất 1 showtime đã được tạo
+          const hasAnyShowtime = await this.showtimeRepository.findOne({
+            where: { movieId: movie.id },
+          });
+
+          // Nếu có showtime nhưng không còn cái nào pending → phim đã hết lịch
+          if (hasAnyShowtime && !pendingShowtime) {
+            movieIdsToStop.push(movie.id);
+          }
+        }
+
+        if (movieIdsToStop.length > 0) {
+          await this.movieRepository.update(
+            { id: In(movieIdsToStop) },
+            { status: EMovieStatus.STOPPED },
+          );
+          this.logger.log(
+            `[Scheduler] Marked ${movieIdsToStop.length} movie(s) as STOPPED (all showtimes completed): [${movieIdsToStop.join(', ')}]`,
+          );
+        }
+      }
     } catch (error) {
       this.logger.error('[Scheduler] cancelExpiredScreenings failed', error);
     }
