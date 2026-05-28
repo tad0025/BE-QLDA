@@ -58,6 +58,11 @@ export class CreateMovieRequestDto {
   @IsOptional()
   endDate: Date;
 
+  @Type(() => Date)
+  @IsDate()
+  @IsOptional()
+  screeningEndDate: Date;
+
   @IsString()
   @IsOptional()
   genre: string;

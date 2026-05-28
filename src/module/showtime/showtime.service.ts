@@ -3,14 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Showtime } from './entities/showtime.entity';
 import { Movie } from '../movie/entities/movie.entity';
-import { CreateShowtimeDto, UpdateShowtimeDto } from './dto/showtime.dto';
+import { CreateShowtimeDto, UpdateShowtimeDto, BulkCreateShowtimeDto } from './dto/showtime.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 import { EShowtimeStatus } from './enums/EShowTimeStatus.enum';
 import { addMinutes } from 'date-fns';
 import { Room } from '../cinema/entities/room.entity';
-import { ERoomStatus } from '../cinema/enums/cinema.enum';
-
+import { ERoomStatus, ERoomType } from '../cinema/enums/cinema.enum';
+import { EMovieFormat } from '../movie/enums/movie.enum';
 @Injectable()
 export class ShowtimeService {
   constructor(
@@ -104,6 +104,20 @@ export class ShowtimeService {
     const preShow = dto.preShowMinutes ?? 10;
     const postBuffer = dto.postMovieBufferMinutes ?? 15;
     const publicStart = new Date(dto.publicStartTime);
+
+    // Kiểm tra screeningEndDate: phim có còn trong thời hạn công chiếu không?
+    if (movie.screeningEndDate) {
+      const endDate = new Date(movie.screeningEndDate);
+      endDate.setHours(23, 59, 59, 999); // hết ngày cuối cùng
+      if (publicStart > endDate) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'MOVIE_SCREENING_EXPIRED',
+          `Phim "${movie.title}" chỉ được chiếu đến ngày ${new Date(movie.screeningEndDate).toLocaleDateString('vi-VN')}`,
+        );
+      }
+    }
+
     const { movieStartTime, movieEndTime, roomReleaseTime } =
       this.calculateTimeSlots(
         publicStart,
@@ -143,6 +157,124 @@ export class ShowtimeService {
     const saved = await this.showtimeRepository.save(showtime);
     return new ApiResponse(true, 'Tạo suất chiếu thành công', saved);
   }
+
+  async bulkCreate(dto: BulkCreateShowtimeDto): Promise<ApiResponse<any>> {
+    // 1. Lookup movie
+    const movie = await this.movieRepository.findOne({
+      where: { id: dto.movieId },
+    });
+    if (!movie) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'MOVIE_NOT_FOUND', 'Không tìm thấy phim');
+    }
+
+    // 2. Lookup valid rooms in the cinema
+    const rooms = await this.roomRepository.find({
+      where: { cinemaId: dto.cinemaId, status: ERoomStatus.ACTIVE },
+    });
+
+    if (rooms.length === 0) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'NO_ROOMS_AVAILABLE', 'Rạp không có phòng chiếu nào đang hoạt động');
+    }
+
+    // Lọc phòng theo định dạng phim
+    const validRooms = rooms.filter(room => {
+      if (dto.format === EMovieFormat.IMAX) {
+        return room.roomType === ERoomType.IMAX;
+      } else {
+        // Định dạng 2D/3D -> các phòng STANDARD, COUPLE, VIP
+        return room.roomType !== ERoomType.IMAX;
+      }
+    });
+
+    if (validRooms.length === 0) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'NO_MATCHING_FORMAT_ROOM', 'Không có phòng nào trong rạp hỗ trợ định dạng phim này');
+    }
+
+    // Ưu tiên primaryRoomId lên đầu danh sách
+    if (dto.primaryRoomId) {
+      validRooms.sort((a, b) => {
+        if (a.id === dto.primaryRoomId) return -1;
+        if (b.id === dto.primaryRoomId) return 1;
+        return 0;
+      });
+    }
+
+    // 3. Tính toán vòng lặp ngày & giờ
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
+    endDate.setHours(23, 59, 59, 999); // Đảm bảo lấy hết ngày cuối
+
+    const createdShowtimes: Showtime[] = [];
+    const failedSlots: { date: string; reason: string }[] = [];
+
+    const preShow = dto.preShowMinutes ?? 10;
+    const postBuffer = dto.postMovieBufferMinutes ?? 15;
+
+    // Duyệt từng ngày
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      // Duyệt từng khung giờ
+      for (const timeSlot of dto.timeSlots) {
+        const [hours, minutes] = timeSlot.split(':').map(Number);
+        const publicStart = new Date(d);
+        publicStart.setHours(hours, minutes, 0, 0);
+
+        // Kiểm tra screeningEndDate của phim
+        if (movie.screeningEndDate) {
+          const mEndDate = new Date(movie.screeningEndDate);
+          mEndDate.setHours(23, 59, 59, 999);
+          if (publicStart > mEndDate) {
+            failedSlots.push({ date: publicStart.toLocaleString('vi-VN'), reason: 'Vượt quá ngày chiếu phim' });
+            continue;
+          }
+        }
+
+        const { movieStartTime, movieEndTime, roomReleaseTime } =
+          this.calculateTimeSlots(publicStart, movie.durationMinutes, preShow, postBuffer);
+
+        let selectedRoomId: number | null = null;
+
+        // Quét từng phòng để tìm phòng trống
+        for (const room of validRooms) {
+          const conflicting = await this.checkConflict(room.id, publicStart, roomReleaseTime);
+          if (!conflicting) {
+            selectedRoomId = room.id;
+            break;
+          }
+        }
+
+        if (selectedRoomId) {
+          // Tạo showtime
+          const showtime = this.showtimeRepository.create({
+            movieId: dto.movieId,
+            roomId: selectedRoomId,
+            publicStartTime: publicStart,
+            movieStartTime,
+            movieEndTime,
+            roomReleaseTime,
+            format: dto.format,
+            status: dto.status ?? EShowtimeStatus.SCHEDULED,
+            preShowMinutes: preShow,
+            postMovieBufferMinutes: postBuffer,
+          });
+          const saved = await this.showtimeRepository.save(showtime);
+          createdShowtimes.push(saved);
+        } else {
+          failedSlots.push({ 
+            date: publicStart.toLocaleString('vi-VN'), 
+            reason: 'Tất cả các phòng hợp lệ đều kẹt lịch' 
+          });
+        }
+      }
+    }
+
+    return new ApiResponse(true, 'Hoàn tất Bulk Create lịch chiếu', {
+      successCount: createdShowtimes.length,
+      failedCount: failedSlots.length,
+      createdShowtimes,
+      failedSlots,
+    });
+  }
+
 
   async findAll(
     page: number = 1,

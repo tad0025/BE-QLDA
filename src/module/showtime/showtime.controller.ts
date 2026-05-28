@@ -3,7 +3,7 @@ import {
   ParseIntPipe, Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ShowtimeService } from './showtime.service';
-import { CreateShowtimeDto, UpdateShowtimeDto } from './dto/showtime.dto';
+import { CreateShowtimeDto, UpdateShowtimeDto, BulkCreateShowtimeDto } from './dto/showtime.dto';
 import { JwtAuthGuard } from '../../core/security/jwt/jwt-auth.guard';
 import { RolesGuard } from '../../core/security/roles/roles.guard';
 import { Roles } from '../../core/security/roles/roles.decorator';
@@ -19,6 +19,14 @@ export class ShowtimeController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateShowtimeDto) {
     return this.showtimeService.create(dto);
+  }
+
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN, EUserRole.STAFF)
+  @HttpCode(HttpStatus.CREATED)
+  async bulkCreate(@Body() dto: BulkCreateShowtimeDto) {
+    return this.showtimeService.bulkCreate(dto);
   }
 
   @Get()
