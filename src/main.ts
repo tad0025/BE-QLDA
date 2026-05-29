@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './core/common/filters/http-exception.filter';
 import { LoggingInterceptor } from './core/common/interceptors/logging.interceptor';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
@@ -13,13 +14,17 @@ async function bootstrap() {
 
   app.set('trust proxy', 'loopback');
 
-  const allowedOrigins = process.env.FRONTEND_URL 
-    ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) 
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
     : ['http://localhost:3000'];
+
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
   });
+
+  // Sử dụng Socket.io adapter cho WebSocket Gateway
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   app.useGlobalPipes(
     new ValidationPipe({

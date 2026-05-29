@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Booking } from './entities/booking.entity';
@@ -15,6 +15,7 @@ import { ConcessionProduct } from '../concession/entities/concession-product.ent
 import { Promotion } from '../promotion/entities/promotion.entity';
 import { EDiscountType } from '../promotion/enums/promotion.enum';
 import { Showtime } from '../showtime/entities/showtime.entity';
+import { SeatGateway } from './seat.gateway';
 
 @Injectable()
 export class BookingService {
@@ -36,6 +37,7 @@ export class BookingService {
     @InjectRepository(Promotion)
     private readonly promotionRepository: Repository<Promotion>,
     private readonly redisService: RedisService,
+    @Optional() private readonly seatGateway: SeatGateway,
   ) {}
 
   // ─── SEAT HOLD ────────────────────────────────────────────────────────
@@ -94,6 +96,9 @@ export class BookingService {
       });
       await this.seatHoldRepository.save(seatHold);
     }
+
+    // Emit seat-update realtime cho tất cả client đang xem suất chiếu này
+    await this.broadcastSeatUpdate(dto.showtimeId);
 
     return new ApiResponse(true, 'Giữ ghế thành công (5 phút)', {
       showtimeId: dto.showtimeId,
@@ -265,6 +270,9 @@ export class BookingService {
       relations: ['bookingConcessions', 'seatHolds'],
     });
 
+    // Emit seat-update realtime sau khi booking được xác nhận
+    await this.broadcastSeatUpdate(dto.showtimeId);
+
     return new ApiResponse(true, 'Tạo đơn đặt vé thành công', fullBooking!);
   }
 
@@ -312,5 +320,28 @@ export class BookingService {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `${prefix}-${timestamp}-${random}`;
+  }
+
+  // ─── Socket Broadcast Helper ──────────────────────────────────────────
+
+  /**
+   * Lấy trạng thái ghế hiện tại từ Redis + DB rồi broadcast tới
+   * tất cả client đang xem suất chiếu đó qua WebSocket.
+   * Nếu SeatGateway chưa được khởi tạo thì bỏ qua (optional injection).
+   */
+  private async broadcastSeatUpdate(showtimeId: number): Promise<void> {
+    if (!this.seatGateway) return;
+
+    // Ghế đang bị giữ trong Redis (hold tạm)
+    const heldSeatIds = await this.redisService.getHeldSeatIds(showtimeId);
+
+    // Ghế đã được đặt chính thức (CONFIRMED)
+    const confirmedHolds = await this.seatHoldRepository.find({
+      where: { showtimeId, status: ESeatHoldStatus.CONFIRMED },
+      select: ['seatId'],
+    });
+    const bookedSeatIds = confirmedHolds.map((h) => h.seatId);
+
+    this.seatGateway.emitSeatUpdate(showtimeId, heldSeatIds, bookedSeatIds);
   }
 }
