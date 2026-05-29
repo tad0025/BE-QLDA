@@ -10,6 +10,7 @@ import { Promotion } from '../promotion/entities/promotion.entity';
 import { Showtime } from '../showtime/entities/showtime.entity';
 import { BookingService } from './booking.service';
 import { BookingController } from './booking.controller';
+import { SeatGateway } from './seat.gateway';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -27,7 +28,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [BookingController],
-  providers: [BookingService],
-  exports: [BookingService],
+  providers: [BookingService, SeatGateway],
+  exports: [BookingService, SeatGateway],
 })
 export class BookingModule {}
