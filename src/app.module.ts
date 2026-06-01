@@ -5,6 +5,7 @@ import { CustomThrottlerGuard } from './core/security/throttler/custom-throttler
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { join } from 'path';
 
 // Infrastructure Modules
 import { RedisModule } from './module/redis/redis.module';
@@ -48,7 +49,12 @@ import { UsersModule } from './module/users/users.module';
         password: config.get<string>('DB_PASS'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: false,
+        migrationsRun: true,
+        migrations: [
+          join(__dirname, 'migrations/*.js'),
+          join(__dirname, 'migrations/*.ts'),
+        ],
       }),
     }),
 
@@ -75,4 +81,4 @@ import { UsersModule } from './module/users/users.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

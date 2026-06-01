@@ -1,14 +1,10 @@
-import { IsString, IsOptional, IsEnum, IsNotEmpty, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
 import { ERoomType, ERoomStatus } from '../enums/cinema.enum';
 
 export class CreateRoomDto {
   @IsString()
   @IsNotEmpty()
   name: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  totalSeats: number;
 
   @IsEnum(ERoomType)
   @IsNotEmpty()
@@ -23,10 +19,6 @@ export class UpdateRoomDto {
   @IsString()
   @IsOptional()
   name?: string;
-
-  @IsNumber()
-  @IsOptional()
-  totalSeats?: number;
 
   @IsEnum(ERoomType)
   @IsOptional()

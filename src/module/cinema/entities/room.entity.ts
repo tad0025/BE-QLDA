@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { ERoomType, ERoomStatus } from '../enums/cinema.enum';
 import { Cinema } from './cinema.entity';
 import { Seat } from './seat.entity';
@@ -17,6 +26,18 @@ export class Room {
 
   @Column()
   totalSeats: number;
+
+  // NEW: số hàng cố định theo loại phòng
+  @Column({ type: 'int', default: 0 })
+  rows: number;
+
+  // NEW: số cột cố định theo loại phòng
+  @Column({ type: 'int', default: 0 })
+  columns: number;
+
+  // NEW: true nếu là phòng couple
+  @Column({ type: 'boolean', default: false })
+  isCouple: boolean;
 
   @Column({ type: 'enum', enum: ERoomType })
   roomType: ERoomType;
@@ -40,4 +61,3 @@ export class Room {
   @OneToMany(() => Showtime, (showtime) => showtime.room)
   showtimes: Showtime[];
 }
-
