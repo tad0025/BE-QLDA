@@ -3,14 +3,23 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Showtime } from './entities/showtime.entity';
 import { Movie } from '../movie/entities/movie.entity';
-import { CreateShowtimeDto, UpdateShowtimeDto, BulkCreateShowtimeDto } from './dto/showtime.dto';
+import {
+  CreateShowtimeDto,
+  UpdateShowtimeDto,
+  BulkCreateShowtimeDto,
+} from './dto/showtime.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 import { EShowtimeStatus } from './enums/EShowTimeStatus.enum';
 import { addMinutes } from 'date-fns';
 import { Room } from '../cinema/entities/room.entity';
-import { ERoomStatus, ERoomType } from '../cinema/enums/cinema.enum';
+import {
+  ERoomStatus,
+  ERoomType,
+  ESeatStatus,
+} from '../cinema/enums/cinema.enum';
 import { EMovieFormat } from '../movie/enums/movie.enum';
+import { ESeatHoldStatus } from '../booking/enums/booking.enum';
 @Injectable()
 export class ShowtimeService {
   constructor(
@@ -164,7 +173,11 @@ export class ShowtimeService {
       where: { id: dto.movieId },
     });
     if (!movie) {
-      throw new CustomException(HttpStatus.NOT_FOUND, 'MOVIE_NOT_FOUND', 'Không tìm thấy phim');
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'MOVIE_NOT_FOUND',
+        'Không tìm thấy phim',
+      );
     }
 
     // 2. Lookup valid rooms in the cinema
@@ -173,11 +186,15 @@ export class ShowtimeService {
     });
 
     if (rooms.length === 0) {
-      throw new CustomException(HttpStatus.BAD_REQUEST, 'NO_ROOMS_AVAILABLE', 'Rạp không có phòng chiếu nào đang hoạt động');
+      throw new CustomException(
+        HttpStatus.BAD_REQUEST,
+        'NO_ROOMS_AVAILABLE',
+        'Rạp không có phòng chiếu nào đang hoạt động',
+      );
     }
 
     // Lọc phòng theo định dạng phim
-    const validRooms = rooms.filter(room => {
+    const validRooms = rooms.filter((room) => {
       if (dto.format === EMovieFormat.IMAX) {
         return room.roomType === ERoomType.IMAX;
       } else {
@@ -187,7 +204,11 @@ export class ShowtimeService {
     });
 
     if (validRooms.length === 0) {
-      throw new CustomException(HttpStatus.BAD_REQUEST, 'NO_MATCHING_FORMAT_ROOM', 'Không có phòng nào trong rạp hỗ trợ định dạng phim này');
+      throw new CustomException(
+        HttpStatus.BAD_REQUEST,
+        'NO_MATCHING_FORMAT_ROOM',
+        'Không có phòng nào trong rạp hỗ trợ định dạng phim này',
+      );
     }
 
     // Ưu tiên primaryRoomId lên đầu danh sách
@@ -211,7 +232,11 @@ export class ShowtimeService {
     const postBuffer = dto.postMovieBufferMinutes ?? 15;
 
     // Duyệt từng ngày
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
       // Duyệt từng khung giờ
       for (const timeSlot of dto.timeSlots) {
         const [hours, minutes] = timeSlot.split(':').map(Number);
@@ -223,19 +248,31 @@ export class ShowtimeService {
           const mEndDate = new Date(movie.screeningEndDate);
           mEndDate.setHours(23, 59, 59, 999);
           if (publicStart > mEndDate) {
-            failedSlots.push({ date: publicStart.toLocaleString('vi-VN'), reason: 'Vượt quá ngày chiếu phim' });
+            failedSlots.push({
+              date: publicStart.toLocaleString('vi-VN'),
+              reason: 'Vượt quá ngày chiếu phim',
+            });
             continue;
           }
         }
 
         const { movieStartTime, movieEndTime, roomReleaseTime } =
-          this.calculateTimeSlots(publicStart, movie.durationMinutes, preShow, postBuffer);
+          this.calculateTimeSlots(
+            publicStart,
+            movie.durationMinutes,
+            preShow,
+            postBuffer,
+          );
 
         let selectedRoomId: number | null = null;
 
         // Quét từng phòng để tìm phòng trống
         for (const room of validRooms) {
-          const conflicting = await this.checkConflict(room.id, publicStart, roomReleaseTime);
+          const conflicting = await this.checkConflict(
+            room.id,
+            publicStart,
+            roomReleaseTime,
+          );
           if (!conflicting) {
             selectedRoomId = room.id;
             break;
@@ -259,9 +296,9 @@ export class ShowtimeService {
           const saved = await this.showtimeRepository.save(showtime);
           createdShowtimes.push(saved);
         } else {
-          failedSlots.push({ 
-            date: publicStart.toLocaleString('vi-VN'), 
-            reason: 'Tất cả các phòng hợp lệ đều kẹt lịch' 
+          failedSlots.push({
+            date: publicStart.toLocaleString('vi-VN'),
+            reason: 'Tất cả các phòng hợp lệ đều kẹt lịch',
           });
         }
       }
@@ -274,7 +311,6 @@ export class ShowtimeService {
       failedSlots,
     });
   }
-
 
   async findAll(
     page: number = 1,
@@ -302,11 +338,12 @@ export class ShowtimeService {
     return response;
   }
 
-  async findOne(id: number): Promise<ApiResponse<Showtime>> {
+  async findOne(id: number): Promise<ApiResponse<any>> {
     const showtime = await this.showtimeRepository.findOne({
       where: { id },
-      relations: ['movie', 'room'],
+      relations: ['movie', 'room', 'room.seats', 'seatHolds'],
     });
+
     if (!showtime) {
       throw new CustomException(
         HttpStatus.NOT_FOUND,
@@ -314,10 +351,86 @@ export class ShowtimeService {
         'Không tìm thấy suất chiếu',
       );
     }
+
+    if (!showtime.room) {
+      throw new CustomException(
+        HttpStatus.NOT_FOUND,
+        'ROOM_NOT_FOUND',
+        'Không tìm thấy phòng chiếu',
+      );
+    }
+
+    // Ưu tiên trạng thái CONFIRMED > HOLDING
+    const holdStatusBySeatId = new Map<number, ESeatHoldStatus>();
+    for (const hold of showtime.seatHolds ?? []) {
+      if (hold.status === ESeatHoldStatus.RELEASED) continue;
+
+      const current = holdStatusBySeatId.get(hold.seatId);
+      if (current === ESeatHoldStatus.CONFIRMED) continue;
+
+      if (
+        hold.status === ESeatHoldStatus.CONFIRMED ||
+        hold.status === ESeatHoldStatus.HOLDING
+      ) {
+        holdStatusBySeatId.set(hold.seatId, hold.status);
+      }
+    }
+
+    const seats = (showtime.room.seats ?? [])
+      .sort((a, b) => a.row.localeCompare(b.row) || a.number - b.number)
+      .map((seat) => ({
+        seatId: seat.id,
+        row: seat.row,
+        column: seat.number,
+        status: this.resolveShowtimeSeatStatus(
+          seat.status,
+          holdStatusBySeatId.get(seat.id),
+        ),
+        isCouple: showtime.room.roomType === ERoomType.COUPLE,
+      }));
+
+    const roomType = this.toClientRoomType(showtime.room.roomType);
+
+    const responseData = {
+      id: showtime.id,
+      movieId: showtime.movieId,
+      roomId: showtime.roomId,
+      publicStartTime: showtime.publicStartTime,
+      movieStartTime: showtime.movieStartTime,
+      movieEndTime: showtime.movieEndTime,
+      roomReleaseTime: showtime.roomReleaseTime,
+      preShowMinutes: showtime.preShowMinutes,
+      postMovieBufferMinutes: showtime.postMovieBufferMinutes,
+      format: showtime.format,
+      status: showtime.status,
+      createdAt: showtime.createdAt,
+      updatedAt: showtime.updatedAt,
+      movie: showtime.movie,
+      room: {
+        id: showtime.room.id,
+        cinemaId: showtime.room.cinemaId,
+        name: showtime.room.name,
+        totalSeats: showtime.room.totalSeats,
+        status: showtime.room.status,
+        roomType,
+        rows: showtime.room.rows,
+        columns: showtime.room.columns,
+        isCouple: showtime.room.isCouple,
+        createdAt: showtime.room.createdAt,
+        updatedAt: showtime.room.updatedAt,
+        seats,
+      },
+      // NEW: expose trực tiếp để FE dễ render seat-map
+      roomType,
+      rows: showtime.room.rows,
+      columns: showtime.room.columns,
+      seats,
+    };
+
     return new ApiResponse(
       true,
       'Lấy thông tin suất chiếu thành công',
-      showtime,
+      responseData,
     );
   }
 
@@ -426,6 +539,24 @@ export class ShowtimeService {
     // Nhóm theo ngày
     const grouped = this.groupByDate(showtimes);
     return new ApiResponse(true, 'Lấy suất chiếu theo rạp thành công', grouped);
+  }
+
+  //Chuẩn roomType về lowercase đúng contract FE
+  private toClientRoomType(
+    roomType: ERoomType,
+  ): 'standard' | 'vip' | 'imax' | 'couple' {
+    return roomType.toLowerCase() as 'standard' | 'vip' | 'imax' | 'couple';
+  }
+
+  //Map trạng thái ghế theo seat_holds + seat status
+  private resolveShowtimeSeatStatus(
+    seatStatus: ESeatStatus,
+    holdStatus?: ESeatHoldStatus,
+  ): 'available' | 'booked' | 'selected' {
+    if (seatStatus === ESeatStatus.MAINTENANCE) return 'booked';
+    if (holdStatus === ESeatHoldStatus.CONFIRMED) return 'booked';
+    if (holdStatus === ESeatHoldStatus.HOLDING) return 'selected';
+    return 'available';
   }
 
   private groupByDate(showtimes: Showtime[]): Record<string, Showtime[]> {

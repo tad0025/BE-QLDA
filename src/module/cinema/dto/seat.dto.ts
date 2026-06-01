@@ -1,12 +1,3 @@
-import { IsNumber, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
-
-export class GenerateSeatsDto {
-  @IsNumber()
-  @IsNotEmpty()
-  rows: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  columns: number;
-
-}
+// Endpoint generate-seats vẫn giữ để không đổi API.
+// Body rows/columns từ client không còn dùng nữa.
+export class GenerateSeatsDto {}
