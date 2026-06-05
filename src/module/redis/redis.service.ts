@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { ENV_VARS } from '../../constants/env.constants';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -11,10 +12,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     this.client = new Redis({
-      host: this.config.get<string>('REDIS_HOST', 'localhost'),
-      port: this.config.get<number>('REDIS_PORT', 6379),
-      password: this.config.get<string>('REDIS_PASS'),
-      db: this.config.get<number>('REDIS_DB', 0),
+      host: this.config.get<string>(ENV_VARS.REDIS_HOST, 'localhost'),
+      port: this.config.get<number>(ENV_VARS.REDIS_PORT, 6379),
+      password: this.config.get<string>(ENV_VARS.REDIS_PASS),
+      db: this.config.get<number>(ENV_VARS.REDIS_DB, 0),
       lazyConnect: true,
     });
 
