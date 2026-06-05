@@ -1,16 +1,16 @@
 import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus, Request } from '@nestjs/common';
 import { PaymentService } from './payment.service';
-import { MockPaymentDto } from './dto/payment.dto';
+import { ConfirmPaymentDto } from './dto/payment.dto';
 import { JwtAuthGuard } from '../../core/security/jwt/jwt-auth.guard';
 
 @Controller('payments')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-  @Post('mock-payment')
+  @Post('confirm')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async mockPayment(@Request() req, @Body() dto: MockPaymentDto) {
-    return this.paymentService.mockPayment(req.user.id, dto);
+  async confirmPayment(@Request() req, @Body() dto: ConfirmPaymentDto) {
+    return this.paymentService.confirmPayment(req.user.id, dto);
   }
 }

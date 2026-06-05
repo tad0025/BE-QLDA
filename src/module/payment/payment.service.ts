@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from './entities/payment.entity';
 import { Booking } from '../booking/entities/booking.entity';
-import { MockPaymentDto } from './dto/payment.dto';
+import { ConfirmPaymentDto } from './dto/payment.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 import { EPaymentStatus, EPaymentMethod, EPaymentChannel } from './enums/payment.enum';
@@ -22,7 +22,7 @@ export class PaymentService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  async mockPayment(userId: number, dto: MockPaymentDto): Promise<ApiResponse<any>> {
+  async confirmPayment(userId: number, dto: ConfirmPaymentDto): Promise<ApiResponse<any>> {
     const booking = await this.bookingRepository.findOne({
       where: { id: dto.bookingId },
       relations: ['showtime', 'seatHolds', 'seatHolds.seat'],
@@ -57,7 +57,7 @@ export class PaymentService {
       payment = await this.paymentRepository.save(payment);
     }
 
-    // Mock thanh toán thành công
+    // Mark payment as successful for the current checkout flow.
     const transactionCode = this.generateTransactionCode();
     payment.status = EPaymentStatus.SUCCESS;
     payment.transactionCode = transactionCode;

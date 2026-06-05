@@ -300,6 +300,38 @@ export class BookingService {
     });
   }
 
+  async getAllBookings(page: number = 1, pageSize: number = 10): Promise<ApiResponse<Booking[]>> {
+    const currentPage = Number(page) || 1;
+    const currentPageSize = Number(pageSize) || 10;
+    const skip = (currentPage - 1) * currentPageSize;
+
+    const [bookings, totalItems] = await this.bookingRepository.findAndCount({
+      relations: [
+        'user',
+        'staff',
+        'showtime',
+        'showtime.movie',
+        'showtime.room',
+        'seatHolds',
+        'seatHolds.seat',
+        'payment',
+      ],
+      order: { createdAt: 'DESC' },
+      skip,
+      take: currentPageSize,
+    });
+
+    const totalPages = Math.ceil(totalItems / currentPageSize);
+    const response = new ApiResponse(true, 'Lấy danh sách đặt vé thành công', bookings);
+    response.pagination = {
+      page: currentPage,
+      pageSize: currentPageSize,
+      totalItems,
+      totalPages,
+    };
+    return response;
+  }
+
   async getUserBookingHistory(userId: number, page: number = 1, pageSize: number = 10): Promise<ApiResponse<Booking[]>> {
     const skip = (page - 1) * pageSize;
     const [bookings, totalItems] = await this.bookingRepository.findAndCount({
