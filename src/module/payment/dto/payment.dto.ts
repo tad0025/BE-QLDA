@@ -2,7 +2,7 @@ import { IsNumber, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EPaymentMethod, EPaymentChannel } from '../enums/payment.enum';
 
-export class MockPaymentDto {
+export class ConfirmPaymentDto {
   @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
