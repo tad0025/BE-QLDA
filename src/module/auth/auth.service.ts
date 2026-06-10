@@ -15,6 +15,8 @@ import { ChangePasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { OtpPurpose } from './enums/otp.enum';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ENotificationType } from '../notification/enums/notification.enum';
 
 const OTP_TTL = 10 * 60 * 1000;
 
@@ -25,6 +27,7 @@ export class AuthService {
     @InjectRepository(User) private userRepository: Repository<User>,
     private readonly mailerService: MailerService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly eventEmitter: EventEmitter2,
   ) { }
 
   async login(loginDto: LoginDto): Promise<ApiResponse<any>> {
@@ -44,6 +47,14 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
+
+    this.eventEmitter.emit('notification.create', {
+      userId: user.id,
+      subject: 'Cảnh báo đăng nhập',
+      content: 'Tài khoản của bạn vừa đăng nhập thành công vào hệ thống.',
+      type: ENotificationType.ACCOUNT,
+      link: '/'
+    });
 
     return new ApiResponse(true, 'Đăng nhập thành công', {
       accessToken,
@@ -105,6 +116,14 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
+
+    this.eventEmitter.emit('notification.create', {
+      userId: savedUser.id,
+      subject: 'Chào mừng bạn đến với CINEPLEX',
+      content: 'Cảm ơn bạn đã đăng ký tài khoản. Chúc bạn có những trải nghiệm xem phim tuyệt vời!',
+      type: ENotificationType.SYSTEM,
+      link: '/profile',
+    });
 
     return new ApiResponse(true, 'Đăng ký thành công', {
       accessToken,
@@ -209,6 +228,16 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(confirmPassword, 10);
     await this.userRepository.update({ email }, { password: hashedPassword });
 
+    const updatedUser = await this.userRepository.findOne({ where: { email } });
+    if (updatedUser) {
+      this.eventEmitter.emit('notification.create', {
+        userId: updatedUser.id,
+        subject: 'Lấy lại mật khẩu',
+        content: 'Mật khẩu của bạn vừa được đặt lại thành công. Vui lòng đăng nhập lại.',
+        type: ENotificationType.ACCOUNT,
+      });
+    }
+
     return new ApiResponse(true, 'Đặt lại mật khẩu thành công', null);
   }
 
@@ -237,6 +266,14 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
     await this.userRepository.update({ id: userId }, { password: hashedPassword });
+
+    this.eventEmitter.emit('notification.create', {
+      userId,
+      subject: 'Đổi mật khẩu thành công',
+      content: 'Mật khẩu của bạn đã được thay đổi. Nếu không phải bạn, vui lòng liên hệ ngay bộ phận hỗ trợ.',
+      type: ENotificationType.ACCOUNT,
+      link: '/profile',
+    });
 
     return new ApiResponse(true, 'Đổi mật khẩu thành công', null);
   }

@@ -16,6 +16,8 @@ import { Promotion } from '../promotion/entities/promotion.entity';
 import { EDiscountType } from '../promotion/enums/promotion.enum';
 import { Showtime } from '../showtime/entities/showtime.entity';
 import { SeatGateway } from './seat.gateway';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ENotificationType } from '../notification/enums/notification.enum';
 
 @Injectable()
 export class BookingService {
@@ -38,6 +40,7 @@ export class BookingService {
     private readonly promotionRepository: Repository<Promotion>,
     private readonly redisService: RedisService,
     @Optional() private readonly seatGateway: SeatGateway,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─── SEAT HOLD ────────────────────────────────────────────────────────
@@ -272,6 +275,15 @@ export class BookingService {
 
     // Emit seat-update realtime sau khi booking được xác nhận
     await this.broadcastSeatUpdate(dto.showtimeId);
+
+    // Gửi thông báo yêu cầu thanh toán
+    this.eventEmitter.emit('notification.create', {
+      userId,
+      subject: 'Đơn đặt vé chờ thanh toán',
+      content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán số tiền ${totalAmount.toLocaleString()} VNĐ trong vòng 15 phút để hoàn tất.`,
+      type: ENotificationType.SYSTEM,
+      link: '/profile',
+    });
 
     return new ApiResponse(true, 'Tạo đơn đặt vé thành công', fullBooking!);
   }
