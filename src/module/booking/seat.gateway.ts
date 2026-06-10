@@ -17,7 +17,7 @@ import { Server, Socket } from 'socket.io';
 @WebSocketGateway({
   namespace: '/seat',
   cors: {
-    origin: '*',
+    origin: true,
     credentials: true,
   },
 })

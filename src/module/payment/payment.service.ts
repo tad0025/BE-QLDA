@@ -9,7 +9,8 @@ import { CustomException } from '../../core/exceptions/custom.exception';
 import { EPaymentStatus, EPaymentMethod, EPaymentChannel } from './enums/payment.enum';
 import { EBookingStatus } from '../booking/enums/booking.enum';
 import { TicketService } from '../ticket/ticket.service';
-import { NotificationService } from '../notification/notification.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ENotificationType } from '../notification/enums/notification.enum';
 
 @Injectable()
 export class PaymentService {
@@ -19,7 +20,7 @@ export class PaymentService {
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
     private readonly ticketService: TicketService,
-    private readonly notificationService: NotificationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async confirmPayment(userId: number, dto: ConfirmPaymentDto): Promise<ApiResponse<any>> {
@@ -71,12 +72,14 @@ export class PaymentService {
     // Generate tickets
     const tickets = await this.ticketService.generateTicketsForBooking(booking);
 
-    // Tạo notification
-    await this.notificationService.createTicketConfirmNotification(
+    // Tạo notification qua Event Emitter
+    this.eventEmitter.emit('notification.create', {
       userId,
-      booking.bookingCode,
-      tickets.length,
-    );
+      subject: 'Đặt vé thành công',
+      content: `Đơn hàng ${booking.bookingCode} đã được thanh toán thành công. Bạn có ${tickets.length} vé. Vui lòng kiểm tra trong phần "Vé của tôi".`,
+      type: ENotificationType.TICKET_CONFIRM,
+      link: '/profile',
+    });
 
     return new ApiResponse(true, 'Thanh toán thành công', {
       payment: {

@@ -5,6 +5,7 @@ import { CustomThrottlerGuard } from './core/security/throttler/custom-throttler
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { join } from 'path';
 
 // Infrastructure Modules
@@ -26,6 +27,7 @@ import { UsersModule } from './module/users/users.module';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {

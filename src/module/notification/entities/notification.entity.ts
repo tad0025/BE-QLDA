@@ -19,11 +19,20 @@ export class Notification {
   @Column({ type: 'enum', enum: ENotificationType })
   type: ENotificationType;
 
+  @Column({ nullable: true })
+  link: string;
+
   @Column({ default: false })
   isSent: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
   sentAt: Date;
+
+  @Column({ default: false })
+  isRead: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  readAt: Date;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
