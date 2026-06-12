@@ -51,7 +51,7 @@ import { UsersModule } from './module/users/users.module';
         password: config.get<string>('DB_PASS'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: false,
+        synchronize: true,
         migrationsRun: true,
         migrations: [
           join(__dirname, 'migrations/*.js'),
@@ -83,4 +83,4 @@ import { UsersModule } from './module/users/users.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
