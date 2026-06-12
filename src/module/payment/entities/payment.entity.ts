@@ -13,7 +13,7 @@ export class Payment {
   @Column({ type: 'enum', enum: EPaymentMethod })
   method: EPaymentMethod;
 
-  @Column({ type: 'enum', enum: EPaymentChannel })
+  @Column({ type: 'enum', enum: EPaymentChannel, default: EPaymentChannel.ONLINE })
   channel: EPaymentChannel;
 
   @Column()
@@ -34,8 +34,13 @@ export class Payment {
   @Column({ type: 'timestamp', nullable: true })
   paymentDate: Date;
 
+  @Column({ nullable: true, length: 2048 })
+  payUrl: string;
+
+  @Column({ nullable: true })
+  gatewayOrderId: string;
+
   @OneToOne(() => Booking, (booking) => booking.payment)
   @JoinColumn({ name: 'bookingId' })
   booking: Booking;
 }
-

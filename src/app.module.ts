@@ -39,6 +39,7 @@ import { UsersModule } from './module/users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      expandVariables: true,
     }),
 
     TypeOrmModule.forRootAsync({
@@ -51,7 +52,7 @@ import { UsersModule } from './module/users/users.module';
         password: config.get<string>('DB_PASS'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: false,
+        synchronize: true,
         migrationsRun: true,
         migrations: [
           join(__dirname, 'migrations/*.js'),
