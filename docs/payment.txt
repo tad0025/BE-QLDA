@@ -1,0 +1,4 @@
+ghi vé gửi về email thì qr đang bị lỗi fix mãi méo đc
+chưa có trang xem vé trên web
+chưa có trang admin quản lý bắp nước ...
+stock bắp nước chưa tự cập nhật.

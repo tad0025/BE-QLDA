@@ -39,6 +39,7 @@ import { UsersModule } from './module/users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      expandVariables: true,
     }),
 
     TypeOrmModule.forRootAsync({

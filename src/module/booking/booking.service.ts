@@ -1,6 +1,6 @@
 import { Injectable, HttpStatus, Optional } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { Booking } from './entities/booking.entity';
 import { BookingConcession } from './entities/booking-concession.entity';
 import { SeatHold } from './entities/seat-hold.entity';
@@ -38,6 +38,8 @@ export class BookingService {
     private readonly concessionProductRepository: Repository<ConcessionProduct>,
     @InjectRepository(Promotion)
     private readonly promotionRepository: Repository<Promotion>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
     @Optional() private readonly seatGateway: SeatGateway,
     private readonly eventEmitter: EventEmitter2,
@@ -222,54 +224,75 @@ export class BookingService {
 
     const totalAmount = ticketTotal + concessionTotal - discountAmount;
     const bookingCode = this.generateBookingCode();
-    const expiredAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 phút để thanh toán
+    // Đồng bộ timeout 5 phút với Redis seat hold TTL
+    const expiredAt = new Date(now.getTime() + 5 * 60 * 1000);
 
-    // Tạo booking
-    const booking = this.bookingRepository.create({
-      userId,
-      showtimeId: dto.showtimeId,
-      promotionId,
-      bookingCode,
-      totalAmount: Math.max(totalAmount, 0),
-      discountAmount,
-      status: EBookingStatus.PENDING,
-      source: dto.source || EBookingSource.ONLINE,
-      expiredAt,
-    });
+    // Toàn bộ tạo booking, seat holds, concessions trong 1 transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedBooking = await this.bookingRepository.save(booking);
+    let savedBooking: Booking;
 
-    // Cập nhật seat holds với bookingId
-    await this.seatHoldRepository.update(
-      {
-        showtimeId: dto.showtimeId,
-        seatId: In(dto.seatIds),
+    try {
+      const booking = queryRunner.manager.create(Booking, {
         userId,
-        status: ESeatHoldStatus.HOLDING,
-      },
-      {
-        bookingId: savedBooking.id,
-        status: ESeatHoldStatus.CONFIRMED,
-      },
-    );
+        showtimeId: dto.showtimeId,
+        promotionId,
+        bookingCode,
+        totalAmount: Math.max(totalAmount, 0),
+        discountAmount,
+        status: EBookingStatus.PENDING,
+        source: dto.source || EBookingSource.ONLINE,
+        expiredAt,
+      });
 
-    // Tạo booking concessions
-    if (concessionItems.length > 0) {
-      const bookingConcessions = concessionItems.map(item =>
-        this.bookingConcessionRepository.create({
+      savedBooking = await queryRunner.manager.save(Booking, booking);
+
+      // Cập nhật seat holds với bookingId (pessimistic: đã kiểm tra Redis hold ở trên)
+      await queryRunner.manager.update(
+        SeatHold,
+        {
+          showtimeId: dto.showtimeId,
+          seatId: In(dto.seatIds),
+          userId,
+          status: ESeatHoldStatus.HOLDING,
+        },
+        {
           bookingId: savedBooking.id,
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          subtotal: item.subtotal,
-        }),
+          status: ESeatHoldStatus.CONFIRMED,
+        },
       );
-      await this.bookingConcessionRepository.save(bookingConcessions);
+
+      // Tạo booking concessions
+      if (concessionItems.length > 0) {
+        const bookingConcessions = concessionItems.map(item =>
+          queryRunner.manager.create(BookingConcession, {
+            bookingId: savedBooking.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            subtotal: item.subtotal,
+          }),
+        );
+        await queryRunner.manager.save(BookingConcession, bookingConcessions);
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw new CustomException(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'BOOKING_CREATE_FAILED',
+        'Tạo đơn đặt vé thất bại, vui lòng thử lại',
+      );
+    } finally {
+      await queryRunner.release();
     }
 
     // Load full booking data
     const fullBooking = await this.bookingRepository.findOne({
-      where: { id: savedBooking.id },
+      where: { id: savedBooking!.id },
       relations: ['bookingConcessions', 'seatHolds'],
     });
 
@@ -280,7 +303,7 @@ export class BookingService {
     this.eventEmitter.emit('notification.create', {
       userId,
       subject: 'Đơn đặt vé chờ thanh toán',
-      content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán số tiền ${totalAmount.toLocaleString()} VNĐ trong vòng 15 phút để hoàn tất.`,
+      content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán ${totalAmount.toLocaleString()} VNĐ trong vòng 5 phút để hoàn tất.`,
       type: ENotificationType.SYSTEM,
       link: '/profile',
     });
@@ -357,6 +380,94 @@ export class BookingService {
     const response = new ApiResponse(true, 'Lấy lịch sử đặt vé thành công', bookings);
     response.pagination = { page: Number(page), pageSize: Number(pageSize), totalItems, totalPages };
     return response;
+  }
+
+  async updateBookingConcessions(bookingId: number, userId: number, dto: any): Promise<ApiResponse<any>> {
+    const booking = await this.bookingRepository.findOne({
+      where: { id: bookingId, userId },
+      relations: ['bookingConcessions', 'promotion'],
+    });
+
+    if (!booking) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'BOOKING_NOT_FOUND', 'Không tìm thấy đơn đặt vé');
+    }
+    
+    if (booking.status !== EBookingStatus.PENDING) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'INVALID_STATUS', 'Chỉ có thể cập nhật đơn chờ thanh toán');
+    }
+
+    const oldConcessionsTotal = booking.bookingConcessions.reduce((sum, bc) => sum + bc.subtotal, 0);
+    const ticketTotal = booking.totalAmount + booking.discountAmount - oldConcessionsTotal;
+
+    let newConcessionTotal = 0;
+    const concessionItems: any[] = [];
+
+    if (dto.concessions && dto.concessions.length > 0) {
+      for (const item of dto.concessions) {
+        const product = await this.concessionProductRepository.findOne({
+          where: { id: item.productId },
+        });
+        if (!product) {
+          throw new CustomException(HttpStatus.BAD_REQUEST, 'PRODUCT_NOT_FOUND', `Sản phẩm #${item.productId} không tồn tại`);
+        }
+        const subtotal = product.price * item.quantity;
+        newConcessionTotal += subtotal;
+        concessionItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: product.price,
+          subtotal,
+        });
+      }
+    }
+
+    let discountAmount = booking.discountAmount;
+    if (booking.promotion) {
+      if (booking.promotion.discountType === EDiscountType.PERCENTAGE) {
+        discountAmount = Math.floor((ticketTotal + newConcessionTotal) * booking.promotion.discountValue / 100);
+      }
+    }
+
+    const newTotalAmount = ticketTotal + newConcessionTotal - discountAmount;
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.manager.delete(BookingConcession, { bookingId });
+
+      if (concessionItems.length > 0) {
+        const newBookingConcessions = concessionItems.map(item =>
+          queryRunner.manager.create(BookingConcession, {
+            bookingId,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            subtotal: item.subtotal,
+          }),
+        );
+        await queryRunner.manager.save(BookingConcession, newBookingConcessions);
+      }
+
+      await queryRunner.manager.update(Booking, bookingId, {
+        totalAmount: Math.max(newTotalAmount, 0),
+        discountAmount,
+      });
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw new CustomException(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'BOOKING_UPDATE_FAILED',
+        'Cập nhật bắp nước thất bại',
+      );
+    } finally {
+      await queryRunner.release();
+    }
+
+    return new ApiResponse(true, 'Cập nhật bắp nước thành công');
   }
 
   private generateBookingCode(): string {
