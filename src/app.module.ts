@@ -84,4 +84,4 @@ import { UsersModule } from './module/users/users.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
