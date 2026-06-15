@@ -5,5 +5,6 @@ export enum ENotificationType {
   STOCK_ALERT = 'STOCK_ALERT',
   SYSTEM = 'SYSTEM',
   ACCOUNT = 'ACCOUNT',
+  PAYMENT_FAILED = 'PAYMENT_FAILED',
 }
 

@@ -623,6 +623,14 @@ export class PaymentService {
       await this.paymentRepository.update({ id: booking.payment.id }, { status: EPaymentStatus.FAILED });
     }
     await this.releaseBookingResources(booking);
+
+    this.eventEmitter.emit('notification.create', {
+      userId: booking.userId,
+      subject: 'Thanh toán thất bại',
+      content: `Đơn hàng ${booking.bookingCode} đã bị hủy do thanh toán thất bại. Vui lòng thử lại.`,
+      type: ENotificationType.PAYMENT_FAILED,
+      link: '/profile',
+    });
   }
 
   // ─── CRON: EXPIRE OVERDUE BOOKINGS ───────────────────────────────────
@@ -674,6 +682,14 @@ export class PaymentService {
 
         // Giải phóng Redis keys và broadcast seat update
         await this.releaseBookingResources(booking);
+
+        this.eventEmitter.emit('notification.create', {
+          userId: booking.userId,
+          subject: 'Đơn hàng hết hạn',
+          content: `Đơn hàng ${booking.bookingCode} đã bị hủy do quá thời gian thanh toán. Vui lòng đặt lại vé.`,
+          type: ENotificationType.PAYMENT_FAILED,
+          link: '/profile',
+        });
 
         this.logger.log(`Booking ${booking.bookingCode} expired and released`);
       } catch (err) {
