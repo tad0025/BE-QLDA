@@ -193,6 +193,11 @@ export class BookingService {
     }
 
     // Tính discount nếu có promotion
+    const validatedConcessionData = await this.buildConcessionItems(dto.concessions);
+    concessionItems.length = 0;
+    concessionItems.push(...validatedConcessionData.concessionItems);
+    concessionTotal = validatedConcessionData.concessionTotal;
+
     let discountAmount = 0;
     let promotionId: number | undefined = undefined;
 
@@ -371,7 +376,15 @@ export class BookingService {
     const skip = (page - 1) * pageSize;
     const [bookings, totalItems] = await this.bookingRepository.findAndCount({
       where: { userId },
-      relations: ['showtime', 'showtime.movie', 'showtime.room', 'tickets', 'bookingConcessions', 'payment'],
+      relations: [
+        'showtime',
+        'showtime.movie',
+        'showtime.room',
+        'tickets',
+        'tickets.seat',
+        'bookingConcessions',
+        'payment',
+      ],
       order: { createdAt: 'DESC' },
       skip,
       take: pageSize,
@@ -421,6 +434,11 @@ export class BookingService {
       }
     }
 
+    const validatedConcessionData = await this.buildConcessionItems(dto.concessions);
+    concessionItems.length = 0;
+    concessionItems.push(...validatedConcessionData.concessionItems);
+    newConcessionTotal = validatedConcessionData.concessionTotal;
+
     let discountAmount = booking.discountAmount;
     if (booking.promotion) {
       if (booking.promotion.discountType === EDiscountType.PERCENTAGE) {
@@ -468,6 +486,66 @@ export class BookingService {
     }
 
     return new ApiResponse(true, 'Cập nhật bắp nước thành công');
+  }
+
+  private async buildConcessionItems(
+    concessions: Array<{ productId: number; quantity: number }> = [],
+  ): Promise<{
+    concessionItems: { productId: number; quantity: number; unitPrice: number; subtotal: number }[];
+    concessionTotal: number;
+  }> {
+    const quantityByProduct = new Map<number, number>();
+
+    for (const item of concessions) {
+      const productId = Number(item.productId);
+      const quantity = Number(item.quantity);
+
+      if (!Number.isInteger(productId) || !Number.isInteger(quantity) || quantity <= 0) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'INVALID_CONCESSION_QUANTITY',
+          'So luong bap nuoc khong hop le',
+        );
+      }
+
+      quantityByProduct.set(productId, (quantityByProduct.get(productId) ?? 0) + quantity);
+    }
+
+    let concessionTotal = 0;
+    const concessionItems: { productId: number; quantity: number; unitPrice: number; subtotal: number }[] = [];
+
+    for (const [productId, quantity] of quantityByProduct.entries()) {
+      const product = await this.concessionProductRepository.findOne({
+        where: { id: productId },
+      });
+
+      if (!product) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'PRODUCT_NOT_FOUND',
+          `San pham #${productId} khong ton tai`,
+        );
+      }
+
+      if (product.stockQuantity < quantity) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'INSUFFICIENT_CONCESSION_STOCK',
+          `San pham "${product.name}" chi con ${product.stockQuantity}`,
+        );
+      }
+
+      const subtotal = product.price * quantity;
+      concessionTotal += subtotal;
+      concessionItems.push({
+        productId,
+        quantity,
+        unitPrice: product.price,
+        subtotal,
+      });
+    }
+
+    return { concessionItems, concessionTotal };
   }
 
   private generateBookingCode(): string {

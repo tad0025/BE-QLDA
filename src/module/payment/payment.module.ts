@@ -6,6 +6,7 @@ import { Payment } from './entities/payment.entity';
 import { Booking } from '../booking/entities/booking.entity';
 import { SeatHold } from '../booking/entities/seat-hold.entity';
 import { BookingConcession } from '../booking/entities/booking-concession.entity';
+import { ConcessionProduct } from '../concession/entities/concession-product.entity';
 
 import { PaymentService } from './payment.service';
 import { PaymentController } from './payment.controller';
@@ -23,7 +24,7 @@ import { MailModule } from '../mails/mail.module';
 @Module({
   imports: [
     ScheduleModule,
-    TypeOrmModule.forFeature([Payment, Booking, SeatHold, BookingConcession]),
+    TypeOrmModule.forFeature([Payment, Booking, SeatHold, BookingConcession, ConcessionProduct]),
     AuthModule,
     TicketModule,
     RedisModule,

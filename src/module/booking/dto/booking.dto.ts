@@ -1,4 +1,4 @@
-import { IsNumber, IsNotEmpty, IsArray, IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsArray, IsOptional, IsString, IsEnum, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EBookingSource } from '../enums/booking.enum';
 
@@ -23,6 +23,7 @@ export class ConcessionItemDto {
   @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
+  @Min(1)
   quantity: number;
 }
 
