@@ -7,6 +7,7 @@ import { Payment } from './entities/payment.entity';
 import { Booking } from '../booking/entities/booking.entity';
 import { SeatHold } from '../booking/entities/seat-hold.entity';
 import { BookingConcession } from '../booking/entities/booking-concession.entity';
+import { ConcessionProduct } from '../concession/entities/concession-product.entity';
 
 import { CreatePaymentUrlDto } from './dto/create-payment-url.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
@@ -480,6 +481,38 @@ export class PaymentService {
     await queryRunner.startTransaction();
 
     try {
+      const lockedBooking = await queryRunner.manager.findOne(Booking, {
+        where: { id: booking.id },
+        relations: ['payment'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!lockedBooking) {
+        throw new CustomException(HttpStatus.NOT_FOUND, 'BOOKING_NOT_FOUND', 'Khong tim thay don dat ve');
+      }
+
+      if (lockedBooking.status === EBookingStatus.PAID) {
+        await queryRunner.commitTransaction();
+        return;
+      }
+
+      const bookingConcessions = await queryRunner.manager.find(BookingConcession, {
+        where: { bookingId: booking.id },
+      });
+
+      for (const item of bookingConcessions) {
+        if (item.quantity <= 0) continue;
+
+        await queryRunner.manager
+          .createQueryBuilder()
+          .update(ConcessionProduct)
+          .set({
+            stockQuantity: () => `GREATEST(stockQuantity - ${Number(item.quantity)}, 0)`,
+          })
+          .where('id = :productId', { productId: item.productId })
+          .execute();
+      }
+
       // Update booking status = PAID
       await queryRunner.manager.update(Booking, { id: booking.id }, {
         status: EBookingStatus.PAID,
@@ -487,8 +520,8 @@ export class PaymentService {
 
       // Update payment
       const transCode = `TXN-${transactionCode}-${Date.now().toString(36).toUpperCase()}`;
-      if (booking.payment) {
-        await queryRunner.manager.update(Payment, { id: booking.payment.id }, {
+      if (lockedBooking.payment) {
+        await queryRunner.manager.update(Payment, { id: lockedBooking.payment.id }, {
           status: EPaymentStatus.SUCCESS,
           method,
           transactionCode: transCode,

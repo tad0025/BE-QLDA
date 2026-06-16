@@ -1,9 +1,22 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param,
-  ParseIntPipe, UseGuards, HttpCode, HttpStatus,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
-import { CreateTicketPriceDto, UpdateTicketPriceDto, BulkCreateTicketPriceDto } from './dto/ticket-price.dto';
+import {
+  CreateTicketPriceDto,
+  UpdateTicketPriceDto,
+  BulkCreateTicketPriceDto,
+} from './dto/ticket-price.dto';
 import { JwtAuthGuard } from '../../core/security/jwt/jwt-auth.guard';
 import { RolesGuard } from '../../core/security/roles/roles.guard';
 import { Roles } from '../../core/security/roles/roles.decorator';
@@ -35,6 +48,14 @@ export class TicketController {
   @HttpCode(HttpStatus.OK)
   async getTicketPrices() {
     return this.ticketService.getTicketPrices();
+  }
+
+  @Post(':qrCode/checkin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN, EUserRole.STAFF)
+  @HttpCode(HttpStatus.OK)
+  async checkInByQrCode(@Param('qrCode') qrCode: string) {
+    return this.ticketService.checkInByQrCode(qrCode);
   }
 
   @Put('prices/:id')
