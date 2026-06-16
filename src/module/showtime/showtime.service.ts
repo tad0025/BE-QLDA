@@ -513,6 +513,8 @@ export class ShowtimeService {
 
   async getByMovieId(movieId: number): Promise<ApiResponse<any>> {
     const now = new Date();
+    const twoWeeksLater = new Date();
+    twoWeeksLater.setDate(now.getDate() + 14);
 
     const showtimes = await this.showtimeRepository
       .createQueryBuilder('showtime')
@@ -523,6 +525,7 @@ export class ShowtimeService {
         statuses: [EShowtimeStatus.SCHEDULED, EShowtimeStatus.ACTIVE],
       })
       .andWhere('showtime.publicStartTime > :now', { now })
+      .andWhere('showtime.publicStartTime <= :twoWeeksLater', { twoWeeksLater })
       .orderBy('showtime.publicStartTime', 'ASC')
       .getMany();
 
