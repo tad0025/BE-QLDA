@@ -6,11 +6,14 @@ import { CreatePromotionDto, UpdatePromotionDto, CheckPromotionDto } from './dto
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class PromotionService {
   constructor(
     @InjectRepository(Promotion)
     private readonly promotionRepository: Repository<Promotion>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(dto: CreatePromotionDto): Promise<ApiResponse<Promotion>> {
@@ -24,6 +27,11 @@ export class PromotionService {
       usedCount: 0,
     });
     const saved = await this.promotionRepository.save(promotion);
+
+    if (saved.isActive) {
+      this.eventEmitter.emit('promotion.created', saved);
+    }
+
     return new ApiResponse(true, 'Tạo khuyến mãi thành công', saved);
   }
 

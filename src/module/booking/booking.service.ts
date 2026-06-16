@@ -487,6 +487,14 @@ relations: [
       await queryRunner.release();
     }
 
+    this.eventEmitter.emit('notification.create', {
+      userId,
+      subject: 'Cập nhật dịch vụ thành công',
+      content: 'Đơn đặt vé của bạn đã được cập nhật thông tin bắp nước thành công.',
+      type: ENotificationType.SYSTEM,
+      link: '/profile',
+    });
+
     return new ApiResponse(true, 'Cập nhật bắp nước thành công');
   }
 

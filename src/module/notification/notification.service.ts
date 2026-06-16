@@ -6,12 +6,20 @@ import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { ENotificationType } from './enums/notification.enum';
 import { NotificationGateway } from './notification.gateway';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Booking } from '../booking/entities/booking.entity';
+import { User } from '../users/entities/user.entity';
+import { EBookingStatus } from '../booking/enums/booking.enum';
+import { EUserStatus } from '../users/enums/user.enum';
 
 @Injectable()
 export class NotificationService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    @InjectRepository(Booking)
+    private readonly bookingRepository: Repository<Booking>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly notificationGateway: NotificationGateway,
   ) {}
 
@@ -33,6 +41,110 @@ export class NotificationService {
     });
     const savedNotification = await this.notificationRepository.save(notification);
     this.notificationGateway.emitNewNotification(payload.userId, savedNotification);
+  }
+
+  /**
+   * Lắng nghe sự kiện suất chiếu bị hủy
+   */
+  @OnEvent('showtime.cancelled')
+  async handleShowtimeCancelled(payload: { showtimeId: number; movieTitle: string }) {
+    const bookings = await this.bookingRepository.find({
+      where: [
+        { showtimeId: payload.showtimeId, status: EBookingStatus.PAID },
+        { showtimeId: payload.showtimeId, status: EBookingStatus.PENDING },
+      ],
+      select: ['userId', 'bookingCode'],
+    });
+
+    const notifications = bookings
+      .filter((b) => b.userId)
+      .map((booking) => {
+        return this.notificationRepository.create({
+          userId: booking.userId,
+          subject: 'Suất chiếu bị hủy',
+          content: `Rất tiếc, suất chiếu phim "${payload.movieTitle}" của đơn hàng ${booking.bookingCode} đã bị hủy. Vui lòng liên hệ CSKH để được hỗ trợ.`,
+          type: ENotificationType.SYSTEM,
+          isSent: true,
+          sentAt: new Date(),
+        });
+      });
+
+    if (notifications.length > 0) {
+      const savedNotifications = await this.notificationRepository.save(notifications);
+      savedNotifications.forEach((n) => {
+        this.notificationGateway.emitNewNotification(n.userId, n);
+      });
+    }
+  }
+
+  /**
+   * Lắng nghe sự kiện suất chiếu bị thay đổi giờ/phòng
+   */
+  @OnEvent('showtime.changed')
+  async handleShowtimeChanged(payload: { showtimeId: number; movieTitle: string }) {
+    const bookings = await this.bookingRepository.find({
+      where: [
+        { showtimeId: payload.showtimeId, status: EBookingStatus.PAID },
+        { showtimeId: payload.showtimeId, status: EBookingStatus.PENDING },
+      ],
+      select: ['userId', 'bookingCode'],
+    });
+
+    const notifications = bookings
+      .filter((b) => b.userId)
+      .map((booking) => {
+        return this.notificationRepository.create({
+          userId: booking.userId,
+          subject: 'Thay đổi thông tin suất chiếu',
+          content: `Suất chiếu phim "${payload.movieTitle}" của đơn hàng ${booking.bookingCode} vừa có sự thay đổi về giờ hoặc phòng chiếu. Vui lòng kiểm tra lại chi tiết vé.`,
+          type: ENotificationType.SYSTEM,
+          isSent: true,
+          sentAt: new Date(),
+          link: '/profile',
+        });
+      });
+
+    if (notifications.length > 0) {
+      const savedNotifications = await this.notificationRepository.save(notifications);
+      savedNotifications.forEach((n) => {
+        this.notificationGateway.emitNewNotification(n.userId, n);
+      });
+    }
+  }
+
+  /**
+   * Lắng nghe sự kiện có mã khuyến mãi mới
+   */
+  @OnEvent('promotion.created')
+  async handlePromotionCreated(promotion: any) {
+    const users = await this.userRepository.find({
+      where: { status: EUserStatus.ACTIVE },
+      select: ['id'],
+    });
+
+    const discountText =
+      promotion.discountType === 'PERCENTAGE'
+        ? `${promotion.discountValue}%`
+        : `${promotion.discountValue.toLocaleString('vi-VN')} VNĐ`;
+
+    const notifications = users.map((user) => {
+      return this.notificationRepository.create({
+        userId: user.id,
+        subject: 'Mã khuyến mãi mới',
+        content: `Mã giảm giá mới dành cho bạn: Nhập ${promotion.code} để được giảm ${discountText}. Nhanh tay đặt vé ngay!`,
+        type: ENotificationType.PROMOTION,
+        isSent: true,
+        sentAt: new Date(),
+      });
+    });
+
+    if (notifications.length > 0) {
+      // Để tối ưu, insert hàng loạt
+      const savedNotifications = await this.notificationRepository.save(notifications, { chunk: 100 });
+      savedNotifications.forEach((n) => {
+        this.notificationGateway.emitNewNotification(n.userId, n);
+      });
+    }
   }
 
   /**

@@ -7,11 +7,15 @@ import { CustomException } from '../../core/exceptions/custom.exception';
 import { EUserStatus } from './enums/user.enum';
 import { UpdateProfileDto } from './dto/users.dto';
 
+import { ENotificationType } from '../notification/enums/notification.enum';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async getAllUsers(page: number = 1, pageSize: number = 10): Promise<ApiResponse<User[]>> {
@@ -34,6 +38,16 @@ export class UsersService {
     }
     user.status = status;
     const updated = await this.userRepository.save(user);
+
+    // Phát sự kiện thông báo khóa/mở khóa tài khoản
+    const statusMessage = status === EUserStatus.BLOCKED ? 'bị khóa' : 'được mở khóa';
+    this.eventEmitter.emit('notification.create', {
+      userId,
+      subject: 'Thay đổi trạng thái tài khoản',
+      content: `Tài khoản của bạn đã ${statusMessage}. Nếu có thắc mắc, vui lòng liên hệ CSKH.`,
+      type: ENotificationType.SYSTEM,
+    });
+
     return new ApiResponse(true, `Cập nhật trạng thái người dùng thành ${status}`, updated);
   }
 
@@ -76,6 +90,15 @@ export class UsersService {
     Object.assign(user, updateData);
 
     const updated = await this.userRepository.save(user);
+
+    this.eventEmitter.emit('notification.create', {
+      userId,
+      subject: 'Cập nhật hồ sơ',
+      content: 'Thông tin cá nhân của bạn đã được cập nhật thành công.',
+      type: ENotificationType.ACCOUNT,
+      link: '/profile',
+    });
+
     return new ApiResponse(true, 'Cập nhật thông tin cá nhân thành công', updated);
   }
 }
