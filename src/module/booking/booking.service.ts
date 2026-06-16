@@ -376,10 +376,12 @@ export class BookingService {
     const skip = (page - 1) * pageSize;
     const [bookings, totalItems] = await this.bookingRepository.findAndCount({
       where: { userId },
-      relations: [
+relations: [
         'showtime',
         'showtime.movie',
         'showtime.room',
+        'seatHolds',
+        'seatHolds.seat',
         'tickets',
         'tickets.seat',
         'bookingConcessions',

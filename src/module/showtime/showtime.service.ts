@@ -512,11 +512,19 @@ export class ShowtimeService {
   }
 
   async getByMovieId(movieId: number): Promise<ApiResponse<any>> {
-    const showtimes = await this.showtimeRepository.find({
-      where: { movieId },
-      relations: ['room', 'room.cinema'],
-      order: { publicStartTime: 'ASC' },
-    });
+    const now = new Date();
+
+    const showtimes = await this.showtimeRepository
+      .createQueryBuilder('showtime')
+      .leftJoinAndSelect('showtime.room', 'room')
+      .leftJoinAndSelect('room.cinema', 'cinema')
+      .where('showtime.movieId = :movieId', { movieId })
+      .andWhere('showtime.status IN (:...statuses)', {
+        statuses: [EShowtimeStatus.SCHEDULED, EShowtimeStatus.ACTIVE],
+      })
+      .andWhere('showtime.publicStartTime > :now', { now })
+      .orderBy('showtime.publicStartTime', 'ASC')
+      .getMany();
 
     // Nhóm theo ngày
     const grouped = this.groupByDate(showtimes);
