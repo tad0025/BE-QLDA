@@ -16,6 +16,8 @@ import { SeatHold } from '../booking/entities/seat-hold.entity';
 import { ETicketStatus } from './enums/ticket.enum';
 import { ESeatHoldStatus } from '../booking/enums/booking.enum';
 import { RedisService } from '../redis/redis.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ENotificationType } from '../notification/enums/notification.enum';
 
 @Injectable()
 export class TicketService {
@@ -29,6 +31,7 @@ export class TicketService {
     @InjectRepository(SeatHold)
     private readonly seatHoldRepository: Repository<SeatHold>,
     private readonly redisService: RedisService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─── TICKET PRICE ─────────────────────────────────────────────────────
@@ -219,6 +222,17 @@ export class TicketService {
         'TICKET_NOT_FOUND',
         'Không tìm thấy vé',
       );
+    }
+
+    // Gửi thông báo cho user khi vé được soát thành công
+    if (checkedInTicket.booking?.userId) {
+      this.eventEmitter.emit('notification.create', {
+        userId: checkedInTicket.booking.userId,
+        subject: 'Soát vé thành công',
+        content: `Vé của bạn cho phim "${checkedInTicket.showtime?.movie?.title}" tại ${checkedInTicket.showtime?.room?.name} đã được soát thành công. Chúc bạn xem phim vui vẻ!`,
+        type: ENotificationType.SYSTEM,
+        link: '/profile',
+      });
     }
 
     return new ApiResponse(true, 'Soát vé thành công', checkedInTicket);

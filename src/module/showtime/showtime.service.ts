@@ -20,6 +20,8 @@ import {
 } from '../cinema/enums/cinema.enum';
 import { EMovieFormat } from '../movie/enums/movie.enum';
 import { ESeatHoldStatus } from '../booking/enums/booking.enum';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class ShowtimeService {
   constructor(
@@ -31,6 +33,8 @@ export class ShowtimeService {
 
     @InjectRepository(Room)
     private readonly roomRepository: Repository<Room>,
+
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ── Tính toán các mốc thời gian từ publicStartTime + movie.durationMinutes ──
@@ -483,6 +487,9 @@ export class ShowtimeService {
       );
     }
 
+    const isCancelled = dto.status === EShowtimeStatus.CANCELLED && showtime.status !== EShowtimeStatus.CANCELLED;
+    const isTimeChanged = dto.publicStartTime && new Date(dto.publicStartTime).getTime() !== showtime.publicStartTime.getTime();
+
     // 5. Cập nhật
     showtime.publicStartTime = newPublicStart;
     showtime.movieStartTime = movieStartTime;
@@ -495,6 +502,14 @@ export class ShowtimeService {
     if (dto.status !== undefined) showtime.status = dto.status;
 
     const updated = await this.showtimeRepository.save(showtime);
+
+    // 6. Phát sự kiện để gửi thông báo
+    if (isCancelled) {
+      this.eventEmitter.emit('showtime.cancelled', { showtimeId: updated.id, movieTitle: showtime.movie?.title });
+    } else if (isTimeChanged) {
+      this.eventEmitter.emit('showtime.changed', { showtimeId: updated.id, movieTitle: showtime.movie?.title });
+    }
+
     return new ApiResponse(true, 'Cập nhật suất chiếu thành công', updated);
   }
 
