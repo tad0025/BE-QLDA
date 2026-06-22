@@ -18,6 +18,15 @@ import { Showtime } from '../showtime/entities/showtime.entity';
 import { SeatGateway } from './seat.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENotificationType } from '../notification/enums/notification.enum';
+import { User } from '../users/entities/user.entity';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+/** Tỷ lệ tích điểm: 10% tổng tiền đơn hàng. 100.000đ → 10.000 điểm. */
+const LOYALTY_EARN_RATE = 0.10;
+/** Giá trị mỗi điểm theo VNĐ khi tiêu. 1 điểm = 1 VNĐ. */
+const LOYALTY_POINT_VALUE = 1;
+/** Giới hạn giảm giá tối đa bằng điểm: 20% tổng đơn. */
+const LOYALTY_MAX_DISCOUNT_RATE = 0.20;
 
 @Injectable()
 export class BookingService {
@@ -38,6 +47,8 @@ export class BookingService {
     private readonly concessionProductRepository: Repository<ConcessionProduct>,
     @InjectRepository(Promotion)
     private readonly promotionRepository: Repository<Promotion>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
@@ -227,7 +238,76 @@ export class BookingService {
       }
     }
 
-    const totalAmount = ticketTotal + concessionTotal - discountAmount;
+    // ─── LOYALTY POINTS LOGIC ──────────────────────────────────────────────
+    let pointsUsed = 0;
+    let pointsDiscountAmount = 0;
+    let redeemConcessionProduct: ConcessionProduct | null = null;
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'Không tìm thấy người dùng');
+    }
+
+    // Trường hợp 1: Dùng điểm để đổi 1 combo cụ thể (redeemConcessionId)
+    if (dto.redeemConcessionId) {
+      redeemConcessionProduct = await this.concessionProductRepository.findOne({
+        where: { id: dto.redeemConcessionId },
+      });
+      if (!redeemConcessionProduct) {
+        throw new CustomException(HttpStatus.NOT_FOUND, 'PRODUCT_NOT_FOUND', 'Sản phẩm combo không tồn tại');
+      }
+      const pointsRequired = redeemConcessionProduct.price;
+      if (user.loyaltyPoints < pointsRequired) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'INSUFFICIENT_POINTS',
+          `Không đủ điểm để đổi "${redeemConcessionProduct.name}". Cần ${pointsRequired.toLocaleString()} điểm, bạn có ${user.loyaltyPoints.toLocaleString()} điểm.`,
+        );
+      }
+      pointsUsed = pointsRequired;
+      // Thêm combo vào concession list nếu chưa có
+      const alreadyInList = concessionItems.some(c => c.productId === dto.redeemConcessionId);
+      if (!alreadyInList) {
+        concessionItems.push({
+          productId: redeemConcessionProduct.id,
+          quantity: 1,
+          unitPrice: redeemConcessionProduct.price,
+          subtotal: redeemConcessionProduct.price,
+        });
+        concessionTotal += redeemConcessionProduct.price;
+      }
+      // Điểm giảm đúng bằng giá combo (trả combo free)
+      pointsDiscountAmount = redeemConcessionProduct.price;
+    }
+    // Trường hợp 2: Dùng điểm để giảm giá trực tiếp tổng đơn
+    else if (dto.pointsToUse && dto.pointsToUse > 0) {
+      if (user.loyaltyPoints < dto.pointsToUse) {
+        throw new CustomException(
+          HttpStatus.BAD_REQUEST,
+          'INSUFFICIENT_POINTS',
+          `Không đủ điểm. Bạn có ${user.loyaltyPoints.toLocaleString()} điểm, yêu cầu ${dto.pointsToUse.toLocaleString()} điểm.`,
+        );
+      }
+      const subTotal = ticketTotal + concessionTotal;
+      const maxPointDiscount = Math.floor(subTotal * LOYALTY_MAX_DISCOUNT_RATE);
+      const requestedDiscount = Math.floor(dto.pointsToUse * LOYALTY_POINT_VALUE);
+      pointsDiscountAmount = Math.min(requestedDiscount, maxPointDiscount);
+      pointsUsed = Math.ceil(pointsDiscountAmount / LOYALTY_POINT_VALUE);
+
+      if (pointsUsed > user.loyaltyPoints) {
+        pointsUsed = user.loyaltyPoints;
+        pointsDiscountAmount = Math.floor(pointsUsed * LOYALTY_POINT_VALUE);
+      }
+    }
+
+    // Trừ điểm ngay lúc tạo Booking (PENDING) để tránh double-spending
+    if (pointsUsed > 0) {
+      await this.userRepository.update({ id: userId }, {
+        loyaltyPoints: () => `loyaltyPoints - ${pointsUsed}`,
+      });
+    }
+
+    const totalAmount = ticketTotal + concessionTotal - discountAmount - pointsDiscountAmount;
     const bookingCode = this.generateBookingCode();
     // Đồng bộ timeout 5 phút với Redis seat hold TTL
     const expiredAt = new Date(now.getTime() + 5 * 60 * 1000);
@@ -246,7 +326,8 @@ export class BookingService {
         promotionId,
         bookingCode,
         totalAmount: Math.max(totalAmount, 0),
-        discountAmount,
+        discountAmount: discountAmount + pointsDiscountAmount,
+        pointsUsed,
         status: EBookingStatus.PENDING,
         source: dto.source || EBookingSource.ONLINE,
         expiredAt,
@@ -305,10 +386,11 @@ export class BookingService {
     await this.broadcastSeatUpdate(dto.showtimeId);
 
     // Gửi thông báo yêu cầu thanh toán
+    const pointsMsg = pointsUsed > 0 ? ` (Đã dùng ${pointsUsed.toLocaleString()} điểm tích lũy)` : '';
     this.eventEmitter.emit('notification.create', {
       userId,
       subject: 'Đơn đặt vé chờ thanh toán',
-      content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán ${totalAmount.toLocaleString()} VNĐ trong vòng 5 phút để hoàn tất.`,
+      content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán ${Math.max(totalAmount, 0).toLocaleString()} VNĐ trong vòng 5 phút để hoàn tất.${pointsMsg}`,
       type: ENotificationType.SYSTEM,
       link: '/profile',
     });

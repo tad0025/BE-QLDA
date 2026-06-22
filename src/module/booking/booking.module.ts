@@ -12,6 +12,7 @@ import { BookingService } from './booking.service';
 import { BookingController } from './booking.controller';
 import { SeatGateway } from './seat.gateway';
 import { AuthModule } from '../auth/auth.module';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AuthModule } from '../auth/auth.module';
       Showtime,
       ConcessionProduct,
       Promotion,
+      User,
     ]),
     AuthModule,
   ],

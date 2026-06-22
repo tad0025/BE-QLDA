@@ -8,6 +8,7 @@ import { Booking } from '../booking/entities/booking.entity';
 import { SeatHold } from '../booking/entities/seat-hold.entity';
 import { BookingConcession } from '../booking/entities/booking-concession.entity';
 import { ConcessionProduct } from '../concession/entities/concession-product.entity';
+import { User } from '../users/entities/user.entity';
 
 import { CreatePaymentUrlDto } from './dto/create-payment-url.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
@@ -27,6 +28,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as QRCode from 'qrcode';
 
+/** Tỷ lệ tích điểm: 10% tổng tiền đơn hàng sau khi thanh toán. 100.000đ → 10.000 điểm. */
+const LOYALTY_EARN_RATE = 0.10;
+
 const BOOKING_TIMEOUT_MS = 5 * 60 * 1000; // 5 phút – đồng bộ với Redis hold TTL
 
 @Injectable()
@@ -42,6 +46,8 @@ export class PaymentService {
     private readonly seatHoldRepository: Repository<SeatHold>,
     @InjectRepository(BookingConcession)
     private readonly bookingConcessionRepository: Repository<BookingConcession>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly momoService: MomoService,
@@ -551,6 +557,15 @@ export class PaymentService {
 
     // Các action sau transaction (không cần rollback nếu fail)
     try {
+      // ─── Tích điểm loyalty cho user ──────────────────────────────────────────────────────
+      const pointsEarned = Math.floor(booking.totalAmount * LOYALTY_EARN_RATE);
+      if (pointsEarned > 0 && booking.userId) {
+        await this.userRepository.update(
+          { id: booking.userId },
+          { loyaltyPoints: () => `loyaltyPoints + ${pointsEarned}` },
+        );
+        this.logger.log(`Loyalty: +${pointsEarned} điểm cho userId=${booking.userId} (booking ${booking.bookingCode})`);
+      }
       const fullBooking = await this.bookingRepository.findOne({
         where: { id: booking.id },
         relations: ['showtime', 'showtime.movie', 'showtime.room', 'seatHolds', 'seatHolds.seat', 'user'],
@@ -655,12 +670,22 @@ export class PaymentService {
     if (booking.payment) {
       await this.paymentRepository.update({ id: booking.payment.id }, { status: EPaymentStatus.FAILED });
     }
+
+    // Hoàn điểm nếu booking có dùng điểm tích lũy
+    if (booking.pointsUsed > 0 && booking.userId) {
+      await this.userRepository.update(
+        { id: booking.userId },
+        { loyaltyPoints: () => `loyaltyPoints + ${booking.pointsUsed}` },
+      );
+      this.logger.log(`Loyalty refund: +${booking.pointsUsed} điểm cho userId=${booking.userId} (booking ${booking.bookingCode} failed)`);
+    }
+
     await this.releaseBookingResources(booking);
 
     this.eventEmitter.emit('notification.create', {
       userId: booking.userId,
       subject: 'Thanh toán thất bại',
-      content: `Đơn hàng ${booking.bookingCode} đã bị hủy do thanh toán thất bại. Vui lòng thử lại.`,
+      content: `Đơn hàng ${booking.bookingCode} đã bị hủy do thanh toán thất bại. Vui lòng thử lại.${booking.pointsUsed > 0 ? ` Điểm tích lũy đã được hoàn trả (${booking.pointsUsed.toLocaleString()} điểm).` : ''}`,
       type: ENotificationType.PAYMENT_FAILED,
       link: '/profile',
     });
@@ -713,13 +738,23 @@ export class PaymentService {
 
         await queryRunner.commitTransaction();
 
+        // Hoàn điểm nếu booking có dùng điểm tích lũy
+        if (booking.pointsUsed > 0 && booking.userId) {
+          await this.userRepository.update(
+            { id: booking.userId },
+            { loyaltyPoints: () => `loyaltyPoints + ${booking.pointsUsed}` },
+          );
+          this.logger.log(`Loyalty refund: +${booking.pointsUsed} điểm cho userId=${booking.userId} (booking ${booking.bookingCode} expired)`);
+        }
+
         // Giải phóng Redis keys và broadcast seat update
         await this.releaseBookingResources(booking);
 
+        const expireContent = `Đơn hàng ${booking.bookingCode} đã bị hủy do quá thời gian thanh toán. Vui lòng đặt lại vé.${booking.pointsUsed > 0 ? ` Điểm tích lũy đã được hoàn trả (${booking.pointsUsed.toLocaleString()} điểm).` : ''}`;
         this.eventEmitter.emit('notification.create', {
           userId: booking.userId,
           subject: 'Đơn hàng hết hạn',
-          content: `Đơn hàng ${booking.bookingCode} đã bị hủy do quá thời gian thanh toán. Vui lòng đặt lại vé.`,
+          content: expireContent,
           type: ENotificationType.PAYMENT_FAILED,
           link: '/profile',
         });

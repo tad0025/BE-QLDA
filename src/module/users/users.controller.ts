@@ -31,6 +31,13 @@ export class UsersController {
     return this.usersService.getProfile(req.user.id);
   }
 
+  @Get('loyalty-info')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async getLoyaltyInfo(@Request() req) {
+    return this.usersService.getLoyaltyInfo(req.user.id);
+  }
+
   @Put('profile')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)

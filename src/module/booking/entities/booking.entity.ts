@@ -43,6 +43,9 @@ export class Booking {
   @Column({ default: 0 })
   discountAmount: number;
 
+  @Column({ default: 0 })
+  pointsUsed: number;
+
   @Column({ type: 'enum', enum: EBookingStatus, default: EBookingStatus.PENDING })
   status: EBookingStatus;
 
