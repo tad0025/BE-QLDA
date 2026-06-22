@@ -130,6 +130,14 @@ export class TicketService {
   async checkInByQrCode(qrCode: string): Promise<ApiResponse<Ticket>> {
     const normalizedQrCode = qrCode.trim();
 
+    if (normalizedQrCode.toUpperCase().startsWith('BK-')) {
+      throw new CustomException(
+        HttpStatus.BAD_REQUEST,
+        'BOOKING_CODE_SCANNED',
+        'Day la ma dat ve, khong phai ma QR cua tung ve. Vui long quet ma bat dau bang TKT-.',
+      );
+    }
+
     const relations = [
       'seat',
       'showtime',
