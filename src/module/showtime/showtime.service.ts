@@ -21,6 +21,8 @@ import {
 import { EMovieFormat } from '../movie/enums/movie.enum';
 import { ESeatHoldStatus } from '../booking/enums/booking.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TicketPrice } from '../ticket/entities/ticket-price.entity';
+import { EDayType } from '../ticket/enums/ticket.enum';
 
 @Injectable()
 export class ShowtimeService {
@@ -33,6 +35,9 @@ export class ShowtimeService {
 
     @InjectRepository(Room)
     private readonly roomRepository: Repository<Room>,
+
+    @InjectRepository(TicketPrice)
+    private readonly ticketPriceRepository: Repository<TicketPrice>,
 
     private readonly eventEmitter: EventEmitter2,
   ) {}
@@ -395,6 +400,18 @@ export class ShowtimeService {
 
     const roomType = this.toClientRoomType(showtime.room.roomType);
 
+    const dayOfWeek = new Date(showtime.publicStartTime).getDay();
+    const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? EDayType.WEEKEND : EDayType.WEEKDAY;
+    
+    const ticketPriceObj = await this.ticketPriceRepository.findOne({
+      where: {
+        roomType: showtime.room.roomType,
+        dayType: dayType,
+      },
+    });
+    
+    const pricePerSeat = ticketPriceObj ? ticketPriceObj.price : 75000;
+
     const responseData = {
       id: showtime.id,
       movieId: showtime.movieId,
@@ -429,6 +446,7 @@ export class ShowtimeService {
       rows: showtime.room.rows,
       columns: showtime.room.columns,
       seats,
+      pricePerSeat,
     };
 
     return new ApiResponse(
