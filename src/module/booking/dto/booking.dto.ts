@@ -12,6 +12,11 @@ export class HoldSeatsDto {
   @IsNumber({}, { each: true })
   @IsNotEmpty()
   seatIds: number[];
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  customerId?: number;
 }
 
 export class ConcessionItemDto {
@@ -69,4 +74,9 @@ export class CreateBookingDto {
   @IsNumber()
   @IsOptional()
   redeemConcessionId?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  customerId?: number;
 }

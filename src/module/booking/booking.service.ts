@@ -54,7 +54,7 @@ export class BookingService {
     private readonly redisService: RedisService,
     @Optional() private readonly seatGateway: SeatGateway,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   // ─── SEAT HOLD ────────────────────────────────────────────────────────
 
@@ -125,11 +125,12 @@ export class BookingService {
 
   // ─── CREATE BOOKING ───────────────────────────────────────────────────
 
-  async createBooking(userId: number, dto: CreateBookingDto): Promise<ApiResponse<Booking>> {
+  async createBooking(userId: number | null, dto: CreateBookingDto | any, staffId?: number): Promise<ApiResponse<Booking>> {
+    const holderId = staffId || userId;
     // Verify tất cả ghế đang được hold bởi user này
     for (const seatId of dto.seatIds) {
       const holder = await this.redisService.getSeatHolder(dto.showtimeId, seatId);
-      if (holder !== userId) {
+      if (holder !== holderId) {
         throw new CustomException(
           HttpStatus.BAD_REQUEST,
           'SEAT_NOT_HELD',
@@ -243,13 +244,17 @@ export class BookingService {
     let pointsDiscountAmount = 0;
     let redeemConcessionProduct: ConcessionProduct | null = null;
 
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
+    const user = userId ? await this.userRepository.findOne({ where: { id: userId } }) : null;
+    if (userId && !user) {
       throw new CustomException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'Không tìm thấy người dùng');
     }
 
+    if (!user && (dto.redeemConcessionId || (dto.pointsToUse && dto.pointsToUse > 0))) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'USER_REQUIRED', 'Phải cung cấp tài khoản khách hàng để sử dụng điểm tích lũy');
+    }
+
     // Trường hợp 1: Dùng điểm để đổi 1 combo cụ thể (redeemConcessionId)
-    if (dto.redeemConcessionId) {
+    if (user && dto.redeemConcessionId) {
       redeemConcessionProduct = await this.concessionProductRepository.findOne({
         where: { id: dto.redeemConcessionId },
       });
@@ -280,7 +285,7 @@ export class BookingService {
       pointsDiscountAmount = redeemConcessionProduct.price;
     }
     // Trường hợp 2: Dùng điểm để giảm giá trực tiếp tổng đơn
-    else if (dto.pointsToUse && dto.pointsToUse > 0) {
+    else if (user && dto.pointsToUse && dto.pointsToUse > 0) {
       if (user.loyaltyPoints < dto.pointsToUse) {
         throw new CustomException(
           HttpStatus.BAD_REQUEST,
@@ -301,7 +306,7 @@ export class BookingService {
     }
 
     // Trừ điểm ngay lúc tạo Booking (PENDING) để tránh double-spending
-    if (pointsUsed > 0) {
+    if (userId && pointsUsed > 0) {
       await this.userRepository.update({ id: userId }, {
         loyaltyPoints: () => `loyaltyPoints - ${pointsUsed}`,
       });
@@ -321,7 +326,8 @@ export class BookingService {
 
     try {
       const booking = queryRunner.manager.create(Booking, {
-        userId,
+        userId: userId || undefined,
+        staffId: staffId || undefined,
         showtimeId: dto.showtimeId,
         promotionId,
         bookingCode,
@@ -341,7 +347,7 @@ export class BookingService {
         {
           showtimeId: dto.showtimeId,
           seatId: In(dto.seatIds),
-          userId,
+          userId: holderId,
           status: ESeatHoldStatus.HOLDING,
         },
         {
@@ -386,14 +392,16 @@ export class BookingService {
     await this.broadcastSeatUpdate(dto.showtimeId);
 
     // Gửi thông báo yêu cầu thanh toán
-    const pointsMsg = pointsUsed > 0 ? ` (Đã dùng ${pointsUsed.toLocaleString()} điểm tích lũy)` : '';
-    this.eventEmitter.emit('notification.create', {
-      userId,
-      subject: 'Đơn đặt vé chờ thanh toán',
-      content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán ${Math.max(totalAmount, 0).toLocaleString()} VNĐ trong vòng 5 phút để hoàn tất.${pointsMsg}`,
-      type: ENotificationType.SYSTEM,
-      link: '/booking-history',
-    });
+    if (userId) {
+      const pointsMsg = pointsUsed > 0 ? ` (Đã dùng ${pointsUsed.toLocaleString()} điểm tích lũy)` : '';
+      this.eventEmitter.emit('notification.create', {
+        userId,
+        subject: 'Đơn đặt vé chờ thanh toán',
+        content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán ${Math.max(totalAmount, 0).toLocaleString()} VNĐ trong vòng 5 phút để hoàn tất.${pointsMsg}`,
+        type: ENotificationType.SYSTEM,
+        link: '/booking-history',
+      });
+    }
 
     return new ApiResponse(true, 'Tạo đơn đặt vé thành công', fullBooking!);
   }
@@ -458,7 +466,7 @@ export class BookingService {
     const skip = (page - 1) * pageSize;
     const [bookings, totalItems] = await this.bookingRepository.findAndCount({
       where: { userId },
-relations: [
+      relations: [
         'showtime',
         'showtime.movie',
         'showtime.room',
@@ -481,14 +489,18 @@ relations: [
 
   async updateBookingConcessions(bookingId: number, userId: number, dto: any): Promise<ApiResponse<any>> {
     const booking = await this.bookingRepository.findOne({
-      where: { id: bookingId, userId },
+      where: { id: bookingId },
       relations: ['bookingConcessions', 'promotion'],
     });
 
     if (!booking) {
       throw new CustomException(HttpStatus.NOT_FOUND, 'BOOKING_NOT_FOUND', 'Không tìm thấy đơn đặt vé');
     }
-    
+
+    if (booking.userId !== userId && booking.staffId !== userId) {
+      throw new CustomException(HttpStatus.FORBIDDEN, 'FORBIDDEN', 'Bạn không có quyền cập nhật đơn này');
+    }
+
     if (booking.status !== EBookingStatus.PENDING) {
       throw new CustomException(HttpStatus.BAD_REQUEST, 'INVALID_STATUS', 'Chỉ có thể cập nhật đơn chờ thanh toán');
     }
@@ -523,14 +535,72 @@ relations: [
     concessionItems.push(...validatedConcessionData.concessionItems);
     newConcessionTotal = validatedConcessionData.concessionTotal;
 
-    let discountAmount = booking.discountAmount;
+    let promotionDiscount = 0;
     if (booking.promotion) {
       if (booking.promotion.discountType === EDiscountType.PERCENTAGE) {
-        discountAmount = Math.floor((ticketTotal + newConcessionTotal) * booking.promotion.discountValue / 100);
+        promotionDiscount = Math.floor((ticketTotal + newConcessionTotal) * booking.promotion.discountValue / 100);
+      } else {
+        promotionDiscount = booking.promotion.discountValue;
       }
     }
 
-    const newTotalAmount = ticketTotal + newConcessionTotal - discountAmount;
+    let pointsUsed = booking.pointsUsed || 0;
+    let pointsDiscountAmount = 0;
+    const user = booking.userId ? await this.userRepository.findOne({ where: { id: booking.userId } }) : null;
+
+    if (!user && (dto.redeemConcessionId || (dto.pointsToUse && dto.pointsToUse > 0))) {
+      throw new CustomException(HttpStatus.BAD_REQUEST, 'USER_REQUIRED', 'Phải cung cấp tài khoản khách hàng để sử dụng điểm tích lũy');
+    }
+
+    if (user && dto.redeemConcessionId) {
+      const redeemConcessionProduct = await this.concessionProductRepository.findOne({
+        where: { id: dto.redeemConcessionId },
+      });
+      if (!redeemConcessionProduct) {
+        throw new CustomException(HttpStatus.NOT_FOUND, 'PRODUCT_NOT_FOUND', 'Sản phẩm combo không tồn tại');
+      }
+      const pointsRequired = redeemConcessionProduct.price;
+      const availablePoints = user.loyaltyPoints + (booking.pointsUsed || 0);
+      if (availablePoints < pointsRequired) {
+        throw new CustomException(HttpStatus.BAD_REQUEST, 'INSUFFICIENT_POINTS', 'Không đủ điểm để đổi combo');
+      }
+      pointsUsed = pointsRequired;
+      pointsDiscountAmount = redeemConcessionProduct.price;
+
+      const alreadyInList = concessionItems.some(c => c.productId === dto.redeemConcessionId);
+      if (!alreadyInList) {
+        concessionItems.push({
+          productId: redeemConcessionProduct.id,
+          quantity: 1,
+          unitPrice: redeemConcessionProduct.price,
+          subtotal: redeemConcessionProduct.price,
+        });
+        newConcessionTotal += redeemConcessionProduct.price;
+      }
+    } else if (user && dto.pointsToUse && dto.pointsToUse > 0) {
+      const availablePoints = user.loyaltyPoints + (booking.pointsUsed || 0);
+      if (availablePoints < dto.pointsToUse) {
+        throw new CustomException(HttpStatus.BAD_REQUEST, 'INSUFFICIENT_POINTS', 'Không đủ điểm');
+      }
+      const LOYALTY_MAX_DISCOUNT_RATE = 0.20;
+      const LOYALTY_POINT_VALUE = 1;
+      const subTotal = ticketTotal + newConcessionTotal;
+      const maxPointDiscount = Math.floor(subTotal * LOYALTY_MAX_DISCOUNT_RATE);
+      const requestedDiscount = Math.floor(dto.pointsToUse * LOYALTY_POINT_VALUE);
+      pointsDiscountAmount = Math.min(requestedDiscount, maxPointDiscount);
+      pointsUsed = Math.ceil(pointsDiscountAmount / LOYALTY_POINT_VALUE);
+
+      if (pointsUsed > availablePoints) {
+        pointsUsed = availablePoints;
+        pointsDiscountAmount = Math.floor(pointsUsed * LOYALTY_POINT_VALUE);
+      }
+    } else {
+      pointsUsed = 0;
+    }
+
+    const totalDiscountAmount = promotionDiscount + pointsDiscountAmount;
+    const newTotalAmount = ticketTotal + newConcessionTotal - totalDiscountAmount;
+    const pointsDifference = pointsUsed - (booking.pointsUsed || 0);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -554,8 +624,15 @@ relations: [
 
       await queryRunner.manager.update(Booking, bookingId, {
         totalAmount: Math.max(newTotalAmount, 0),
-        discountAmount,
+        discountAmount: totalDiscountAmount,
+        pointsUsed,
       });
+
+      if (user && pointsDifference !== 0) {
+        await queryRunner.manager.update(User, user.id, {
+          loyaltyPoints: () => `loyaltyPoints - ${pointsDifference}`,
+        });
+      }
 
       await queryRunner.commitTransaction();
     } catch (err) {
@@ -577,7 +654,20 @@ relations: [
       link: '/booking-history',
     });
 
-    return new ApiResponse(true, 'Cập nhật bắp nước thành công');
+    const estimatedPointsEarned = Math.floor(Math.max(newTotalAmount, 0) * 0.10);
+
+    return new ApiResponse(true, 'Cập nhật bắp nước thành công', {
+      ticketTotal,
+      concessionTotal: newConcessionTotal,
+      promotionDiscount,
+      pointsDiscountAmount,
+      comboRedeemAmount: dto.redeemConcessionId ? pointsDiscountAmount : 0,
+      totalDiscountAmount,
+      pointsUsed,
+      totalAmount: Math.max(newTotalAmount, 0),
+      estimatedPointsEarned,
+      loyaltyPoints: user ? user.loyaltyPoints + (booking.pointsUsed || 0) : 0,
+    });
   }
 
   private async buildConcessionItems(
@@ -666,7 +756,15 @@ relations: [
       select: ['seatId'],
     });
     const bookedSeatIds = confirmedHolds.map((h) => h.seatId);
-
     this.seatGateway.emitSeatUpdate(showtimeId, heldSeatIds, bookedSeatIds);
+  }
+
+  async staffHoldSeats(staffId: number, dto: HoldSeatsDto | any): Promise<ApiResponse<any>> {
+    return this.holdSeats(staffId, dto);
+  }
+
+  async staffCreateBooking(staffId: number, dto: CreateBookingDto | any): Promise<ApiResponse<Booking>> {
+    const customerId = dto.customerId || null;
+    return this.createBooking(customerId, dto, staffId);
   }
 }

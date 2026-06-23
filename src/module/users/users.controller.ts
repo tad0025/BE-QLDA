@@ -24,6 +24,14 @@ export class UsersController {
     return this.usersService.getAllUsers(page, pageSize);
   }
 
+  @Get('search')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN, EUserRole.STAFF)
+  @HttpCode(HttpStatus.OK)
+  async searchUser(@Query('keyword') keyword: string) {
+    return this.usersService.searchUser(keyword);
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)

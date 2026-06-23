@@ -121,4 +121,16 @@ export class UsersService {
       maxDiscountRate: 0.20,    // Tối đa 20% tổng đơn
     });
   }
+
+  async searchUser(keyword: string): Promise<ApiResponse<User[]>> {
+    if (!keyword || keyword.trim() === '') {
+      return new ApiResponse(true, 'Kết quả rỗng', []);
+    }
+    const qb = this.userRepository.createQueryBuilder('user');
+    qb.where('user.email LIKE :keyword', { keyword: `%${keyword}%` })
+      .orWhere('user.phone LIKE :keyword', { keyword: `%${keyword}%` })
+      .take(10);
+    const users = await qb.getMany();
+    return new ApiResponse(true, 'Tìm kiếm thành công', users);
+  }
 }
