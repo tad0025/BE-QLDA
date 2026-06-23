@@ -1,0 +1,36 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Booking } from './entities/booking.entity';
+import { BookingConcession } from './entities/booking-concession.entity';
+import { SeatHold } from './entities/seat-hold.entity';
+import { Seat } from '../cinema/entities/seat.entity';
+import { TicketPrice } from '../ticket/entities/ticket-price.entity';
+import { ConcessionProduct } from '../concession/entities/concession-product.entity';
+import { Promotion } from '../promotion/entities/promotion.entity';
+import { Showtime } from '../showtime/entities/showtime.entity';
+import { BookingService } from './booking.service';
+import { BookingController } from './booking.controller';
+import { SeatGateway } from './seat.gateway';
+import { AuthModule } from '../auth/auth.module';
+import { User } from '../users/entities/user.entity';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Booking,
+      BookingConcession,
+      SeatHold,
+      Seat,
+      TicketPrice,
+      Showtime,
+      ConcessionProduct,
+      Promotion,
+      User,
+    ]),
+    AuthModule,
+  ],
+  controllers: [BookingController],
+  providers: [BookingService, SeatGateway],
+  exports: [BookingService, SeatGateway],
+})
+export class BookingModule {}
