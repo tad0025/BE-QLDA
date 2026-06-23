@@ -101,4 +101,24 @@ export class UsersService {
 
     return new ApiResponse(true, 'Cập nhật thông tin cá nhân thành công', updated);
   }
+
+  /**
+   * Trả về thông tin điểm tích lũy cho frontend:
+   * - Số điểm hiện tại
+   * - Tỷ lệ tích điểm (10%)
+   * - Giới hạn giảm giá bằng điểm (20%)
+   * - 1 điểm = 1 VNĐ
+   */
+  async getLoyaltyInfo(userId: number): Promise<ApiResponse<any>> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new CustomException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'Không tìm thấy người dùng');
+    }
+    return new ApiResponse(true, 'Lấy thông tin điểm tích lũy thành công', {
+      loyaltyPoints: user.loyaltyPoints,
+      pointValue: 1,           // 1 điểm = 1 VNĐ
+      earnRate: 0.10,           // 10% giá trị đơn hàng
+      maxDiscountRate: 0.20,    // Tối đa 20% tổng đơn
+    });
+  }
 }

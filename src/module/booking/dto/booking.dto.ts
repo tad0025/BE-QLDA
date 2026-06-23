@@ -50,4 +50,23 @@ export class CreateBookingDto {
   @IsEnum(EBookingSource)
   @IsOptional()
   source?: EBookingSource;
+
+  /**
+   * Số điểm tích lũy muốn sử dụng để giảm giá đơn hàng.
+   * 1 điểm = 1 VNĐ. Tối đa 20% tổng giá trị đơn hàng.
+   */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  pointsToUse?: number;
+
+  /**
+   * ID của sản phẩm combo muốn đổi bằng điểm tích lũy.
+   * Nếu cung cấp, toàn bộ giá của combo đó sẽ được thanh toán bằng điểm.
+   */
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  redeemConcessionId?: number;
 }
