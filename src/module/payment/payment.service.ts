@@ -301,6 +301,7 @@ export class PaymentService {
       paymentMethod: booking.payment?.method,
       transactionCode: booking.payment?.transactionCode,
       paymentDate: booking.payment?.paymentDate,
+      source: booking.source,
     });
   }
 
@@ -338,6 +339,7 @@ export class PaymentService {
       paymentMethod: booking.payment?.method,
       transactionCode: booking.payment?.transactionCode,
       paymentDate: booking.payment?.paymentDate,
+      source: booking.source,
     });
   }
 
