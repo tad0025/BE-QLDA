@@ -24,6 +24,7 @@ import { PromotionModule } from './module/promotion/promotion.module';
 import { ShowtimeModule } from './module/showtime/showtime.module';
 import { TicketModule } from './module/ticket/ticket.module';
 import { UsersModule } from './module/users/users.module';
+import { StatisticsModule } from './module/statistics/statistics.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { UsersModule } from './module/users/users.module';
     ShowtimeModule,
     TicketModule,
     UsersModule,
+    StatisticsModule,
   ],
   controllers: [],
   providers: [
