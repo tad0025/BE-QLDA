@@ -100,7 +100,7 @@ export class NotificationService {
           type: ENotificationType.SYSTEM,
           isSent: true,
           sentAt: new Date(),
-          link: '/profile',
+          link: '/booking-history',
         });
       });
 

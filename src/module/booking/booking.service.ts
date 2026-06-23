@@ -310,7 +310,7 @@ export class BookingService {
       subject: 'Đơn đặt vé chờ thanh toán',
       content: `Bạn đã tạo đơn đặt vé mã ${bookingCode}. Vui lòng thanh toán ${totalAmount.toLocaleString()} VNĐ trong vòng 5 phút để hoàn tất.`,
       type: ENotificationType.SYSTEM,
-      link: '/profile',
+      link: '/booking-history',
     });
 
     return new ApiResponse(true, 'Tạo đơn đặt vé thành công', fullBooking!);
@@ -492,7 +492,7 @@ relations: [
       subject: 'Cập nhật dịch vụ thành công',
       content: 'Đơn đặt vé của bạn đã được cập nhật thông tin bắp nước thành công.',
       type: ENotificationType.SYSTEM,
-      link: '/profile',
+      link: '/booking-history',
     });
 
     return new ApiResponse(true, 'Cập nhật bắp nước thành công');
