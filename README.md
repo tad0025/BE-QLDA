@@ -1,189 +1,157 @@
-# 🎬 Cinema Management API - Tài liệu API
+# 🎬 CINEPLEX - Hệ thống Quản lý Rạp Chiếu Phim & Đặt Vé Trực Tuyến
 
-> Build thành công ✅ — Tất cả 5 phases đã được triển khai hoàn tất.
+CINEPLEX là một hệ thống web full-stack hiện đại hỗ trợ quản lý rạp chiếu phim, vận hành suất chiếu và cung cấp nền tảng đặt vé trực tuyến cho khách hàng. Hệ thống nổi bật với tính năng giữ ghế theo thời gian thực (Real-time seat hold), tích hợp thanh toán trực tuyến và xuất vé điện tử mã QR.
 
-## Tổng quan
+## 👥 Đội ngũ phát triển (Nhóm 03)
 
-| Module | Files Created | APIs |
-|--------|--------------|------|
-| **Cinema** | 5 files (3 DTOs, 1 Service, 1 Controller) | 10 endpoints |
-| **Users** | 3 files (1 DTO, 1 Service, 1 Controller) | 3 endpoints |
-| **Concession** | 3 files (1 DTO, 1 Service, 1 Controller) | 5 endpoints |
-| **Promotion** | 3 files (1 DTO, 1 Service, 1 Controller) | 6 endpoints |
-| **Showtime** | 3 files (1 DTO, 1 Service, 1 Controller) | 7 endpoints |
-| **Ticket** | 3 files (1 DTO, 1 Service, 1 Controller) | 5 endpoints |
-| **Booking** | 3 files (1 DTO, 1 Service, 1 Controller) | 4 endpoints |
-| **Payment** | 3 files (1 DTO, 1 Service, 1 Controller) | 1 endpoint |
-| **Notification** | 2 files (1 Service, 1 Controller) | 1 endpoint |
-| **Total** | **29 files** | **42 endpoints** |
+* **Nguyễn Sư Thành Đạt** - 23110089
+* **Hà Trường Giang** - 23110095
+* **Lê Nguyễn Đăng Khoa** - 23110115
+* **Trịnh Đại Nghĩa** - 23110131
 
----
+Giảng viên hướng dẫn: **Ths. Nguyễn Minh Đạo** (Trường Đại học Công Nghệ Kỹ Thuật Thành phố Hồ Chí Minh - Khoa Công Nghệ Thông Tin).
 
-## Phase 1: Cinema Module (Rạp / Phòng / Ghế)
+## 🚀 Công nghệ sử dụng
 
-### 🏢 Cinema CRUD
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/cinemas` | Admin/Staff | Tạo rạp chiếu phim |
-| `GET` | `/cinemas?page=1&pageSize=10` | Public | Lấy danh sách rạp (phân trang) |
-| `GET` | `/cinemas/:id` | Public | Lấy chi tiết rạp + danh sách phòng |
-| `PUT` | `/cinemas/:id` | Admin/Staff | Cập nhật thông tin rạp |
-| `DELETE` | `/cinemas/:id` | Admin/Staff | Xóa rạp |
+Hệ thống được phát triển dựa trên kiến trúc Layered Architecture phân tách rõ ràng giữa Frontend và Backend.
 
-### 🚪 Room CRUD
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/cinemas/:cinemaId/rooms` | Admin/Staff | Tạo phòng chiếu |
-| `GET` | `/cinemas/:cinemaId/rooms` | Public | Lấy DS phòng theo rạp |
-| `GET` | `/cinemas/rooms/:roomId` | Public | Chi tiết phòng + ghế |
-| `PUT` | `/cinemas/rooms/:roomId` | Admin/Staff | Cập nhật phòng |
-| `DELETE` | `/cinemas/rooms/:roomId` | Admin/Staff | Xóa phòng |
+**Frontend (Client/Admin/Staff SPA):**
 
-### 💺 Seat
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/cinemas/rooms/:roomId/generate-seats` | Admin/Staff | Tạo ghế tự động (rows, columns, seatType) |
-| `GET` | `/cinemas/rooms/:roomId/seats` | Public | Lấy DS ghế theo phòng |
+* ReactJS + Vite
+* Tailwind CSS (Styling)
+* React Router DOM (Routing)
+* Axios (HTTP Client)
+* Socket.io-client (Real-time updates)
+* Html5-Qrcode & qrcode.react (Quét và sinh mã QR)
 
----
+**Backend (RESTful API):**
 
-## Phase 2: Users / Concession / Promotion
+* NestJS (TypeScript Framework)
+* TypeORM & MySQL (Database)
+* Redis (Caching & Distributed Lock cho sơ đồ ghế)
+* Socket.io (WebSocket Gateway)
+* Nodemailer (Gửi Email tự động)
+* Cloudinary (Lưu trữ hình ảnh/poster)
+* Tích hợp thanh toán: MoMo, VNPay, PayPal (Sandbox)
 
-### 👤 Users
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `GET` | `/users?page=1&pageSize=10` | Admin/Staff | Danh sách user (phân trang) |
-| `GET` | `/users/profile` | Authenticated | Lấy profile user đang đăng nhập |
-| `PUT` | `/users/:id/status` | Admin/Staff | Khóa/mở khóa tài khoản |
+## ✨ Các tính năng nổi bật
 
-### 🍿 Concession
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/concessions` | Admin/Staff | Tạo sản phẩm bắp nước |
-| `GET` | `/concessions?page=1&pageSize=10` | Public | Danh sách sản phẩm |
-| `GET` | `/concessions/:id` | Public | Chi tiết sản phẩm |
-| `PUT` | `/concessions/:id` | Admin/Staff | Cập nhật sản phẩm |
-| `DELETE` | `/concessions/:id` | Admin/Staff | Xóa sản phẩm |
+### 👤 Dành cho Khách hàng (Customer)
 
-### 🎁 Promotion
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/promotions` | Admin/Staff | Tạo khuyến mãi |
-| `GET` | `/promotions?page=1&pageSize=10` | Admin/Staff | Danh sách khuyến mãi |
-| `GET` | `/promotions/:id` | Admin/Staff | Chi tiết khuyến mãi |
-| `PUT` | `/promotions/:id` | Admin/Staff | Cập nhật khuyến mãi |
-| `DELETE` | `/promotions/:id` | Admin/Staff | Xóa khuyến mãi |
-| `POST` | `/promotions/check-promotion` | Authenticated | Kiểm tra mã khuyến mãi (code, movieId) |
+* **Xác thực:** Đăng nhập/Đăng ký an toàn với mã OTP qua Email, phân quyền bằng JWT.
+* **Tra cứu:** Tìm kiếm phim, xem chi tiết (trailer, mô tả, độ tuổi), lịch chiếu theo rạp/ngày.
+* **Đặt vé Real-time:** Sơ đồ ghế động. Khi chọn ghế, ghế sẽ được khóa tạm thời trong **5 phút** qua Redis & Socket.io để tránh trùng lặp.
+* **Dịch vụ đi kèm:** Đặt thêm Bắp, Nước, Combo ngay trong luồng checkout.
+* **Khuyến mãi & Tích điểm:** Áp dụng mã giảm giá, tích điểm (Loyalty points) sau mỗi giao dịch thành công và dùng điểm để đổi vé/combo.
+* **Thanh toán & E-Ticket:** Thanh toán qua VNPay, MoMo hoặc PayPal. Nhận vé QR Code qua Email tự động ngay sau khi thanh toán.
+
+### 🛡️ Dành cho Quản trị viên (Admin)
+
+* **Dashboard:** Biểu đồ doanh thu trực quan, thống kê vé bán, đơn hàng mới nhất và tỷ lệ lấp đầy.
+* **Quản lý Rạp & Phòng chiếu:** Tạo chi nhánh rạp, cấu hình phòng chiếu (Standard, VIP, Couple, IMAX) và tự động sinh layout ghế.
+* **Lập lịch chiếu (Scheduling):** Tạo suất chiếu đơn hoặc hàng loạt (Bulk create). Hệ thống tự động validation **chống trùng lịch phòng chiếu**.
+* **Quản lý danh mục:** CRUD Phim (kèm upload Poster lên Cloudinary), Giá vé (cuối tuần/ngày thường), Sản phẩm bắp nước, Mã khuyến mãi.
+
+### 🧑💼 Dành cho Nhân viên (Staff)
+
+* **Soát vé (Check-in):** Quét mã QR trực tiếp bằng Camera từ thiết bị tại quầy để xác nhận vé, chống quét lại (Double check-in prevention).
+* **Bán vé tại quầy (Offline Sale):** Chọn suất chiếu, ghế, bắp nước và tạo đơn hàng thanh toán tiền mặt trực tiếp cho khách lẻ.
 
 ---
 
-## Phase 3: Showtime & Ticket Price
+## 🛠️ Hướng dẫn Cài đặt & Chạy dự án
 
-### 🎬 Showtime
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/showtimes` | Admin/Staff | Tạo suất chiếu (có check trùng lịch) |
-| `GET` | `/showtimes?page=1&pageSize=10` | Public | Danh sách suất chiếu |
-| `GET` | `/showtimes/:id` | Public | Chi tiết suất chiếu |
-| `GET` | `/showtimes/by-movie/:movieId` | Public | Suất chiếu theo phim (nhóm theo ngày) |
-| `GET` | `/showtimes/by-cinema/:cinemaId` | Public | Suất chiếu theo rạp (nhóm theo ngày) |
-| `PUT` | `/showtimes/:id` | Admin/Staff | Cập nhật suất chiếu |
-| `DELETE` | `/showtimes/:id` | Admin/Staff | Xóa suất chiếu |
+### Yêu cầu hệ thống
 
-### 💰 Ticket Price
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/tickets/prices` | Admin/Staff | Tạo giá vé (showtimeId, seatType, dayType) |
-| `POST` | `/tickets/prices/bulk` | Admin/Staff | Cấu hình giá vé hàng loạt |
-| `GET` | `/tickets/prices/showtime/:showtimeId` | Public | Lấy DS giá vé theo suất chiếu |
-| `PUT` | `/tickets/prices/:id` | Admin/Staff | Cập nhật giá vé |
-| `DELETE` | `/tickets/prices/:id` | Admin/Staff | Xóa giá vé |
+* **Node.js** (Khuyến nghị v18+)
+* **MySQL** (Đang chạy ở cổng 3306)
+* **Redis** (Đang chạy ở cổng 6379)
 
----
+### 1. Khởi chạy Backend
 
-## Phase 4: Booking (Seat Hold + Đặt vé)
+Mở terminal và di chuyển vào thư mục Backend (`BE-QLDA`):
 
-### 🎟️ Booking
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/bookings/hold-seats` | Authenticated | Giữ ghế 5 phút (Redis + DB log) |
-| `POST` | `/bookings` | Authenticated | Tạo đơn đặt vé (ghế + bắp nước + promotion) |
-| `GET` | `/bookings/showtime/:showtimeId/seats` | Public | DS ghế đã đặt/giữ cho suất chiếu |
-| `GET` | `/bookings/my-bookings?page=1&pageSize=10` | Authenticated | Lịch sử đặt vé của user |
-
----
-
-## Phase 5: Payment / Ticket / Notification
-
-### 💳 Payment
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `POST` | `/payments/mock-payment` | Authenticated | Mock thanh toán → PAID → Generate tickets → Notification |
-
-### 🔔 Notification
-| Method | Endpoint | Auth | Mô tả |
-|--------|---------|------|--------|
-| `GET` | `/notifications?page=1&pageSize=10` | Authenticated | Danh sách thông báo của user |
-
----
-
-## Luồng đặt vé hoàn chỉnh
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant B as BookingAPI
-    participant R as Redis
-    participant P as PaymentAPI
-    participant T as TicketService
-    participant N as NotificationService
-
-    U->>B: POST /bookings/hold-seats
-    B->>R: holdSeat (NX, 5min TTL)
-    R-->>B: OK
-    B-->>U: Ghế đã giữ (5 phút)
-
-    U->>B: POST /bookings
-    B->>R: Verify seat holders
-    B->>B: Tính giá vé + bắp nước - discount
-    B-->>U: Booking PENDING
-
-    U->>P: POST /payments/mock-payment
-    P->>P: Payment → SUCCESS
-    P->>B: Booking → PAID
-    P->>T: Generate tickets + QR codes
-    T->>R: Release seats from Redis
-    P->>N: Create TICKET_CONFIRM notification
-    P-->>U: Thanh toán thành công
+```bash
+cd BE-QLDA
+npm ci
 ```
 
+Tạo file `.env` ở thư mục root của Backend và điền các thông tin sau:
+
+```env
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+
+# Database MySQL
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASS=your_mysql_password
+DB_NAME=qlda_movie
+
+# Security
+JWT_ACCESS_SECRET=your_jwt_access_secret
+JWT_REFRESH_SECRET=your_jwt_refresh_secret
+JWT_ACCESS_EXPIRES_IN=1d
+
+# Redis (Real-time Seat Locking)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Email SMTP (Nodemailer)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your_email@gmail.com
+MAIL_PASS=your_app_password
+MAIL_FROM=your_email@gmail.com
+
+# Cloudinary (Image Storage)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Tích hợp thanh toán (Cấu hình sandbox keys)
+# VNP_TMN_CODE, VNP_HASH_SECRET, MOMO_PARTNER_CODE... (Xem thêm trong config)
+```
+
+Build và chạy Backend:
+
+```bash
+npm run build
+npm run start:dev
+```
+
+*Lưu ý: Hệ thống được cấu hình `synchronize: true` ở chế độ dev nên sẽ tự động đồng bộ Schema với DB MySQL.*
+
+### 2. Khởi chạy Frontend
+
+Mở một terminal khác và di chuyển vào thư mục Frontend (`src-fe` / `FE-QLDA-MovieManagement`):
+
+```bash
+cd FE-QLDA-MovieManagement
+npm ci
+```
+
+Tạo file `.env` ở thư mục root của Frontend:
+
+```env
+VITE_API_URL=http://localhost:3000
+VITE_SOCKET_URL=ws://localhost:3000
+```
+
+Chạy Frontend:
+
+```bash
+npm run dev
+```
+
+Trang web sẽ chạy tại địa chỉ: `http://localhost:5173`
+
 ---
 
-## Files đã tạo/sửa
+## 📖 Kịch bản trải nghiệm (Demo Flow)
 
-### Tạo mới (29 files)
-- `src/module/cinema/dto/cinema.dto.ts`, `room.dto.ts`, `seat.dto.ts`
-- `src/module/cinema/cinema.service.ts`, `cinema.controller.ts`
-- `src/module/users/dto/users.dto.ts`
-- `src/module/users/users.service.ts`, `users.controller.ts`
-- `src/module/concession/dto/concession.dto.ts`
-- `src/module/concession/concession.service.ts`, `concession.controller.ts`
-- `src/module/promotion/dto/promotion.dto.ts`
-- `src/module/promotion/promotion.service.ts`, `promotion.controller.ts`
-- `src/module/showtime/dto/showtime.dto.ts`
-- `src/module/showtime/showtime.service.ts`, `showtime.controller.ts`
-- `src/module/ticket/dto/ticket-price.dto.ts`
-- `src/module/ticket/ticket.service.ts`, `ticket.controller.ts`
-- `src/module/booking/dto/booking.dto.ts`
-- `src/module/booking/booking.service.ts`, `booking.controller.ts`
-- `src/module/payment/dto/payment.dto.ts`
-- `src/module/payment/payment.service.ts`, `payment.controller.ts`
-- `src/module/notification/notification.service.ts`, `notification.controller.ts`
-
-### Cập nhật (8 module files)
-- `cinema.module.ts`, `users.module.ts`, `concession.module.ts`
-- `promotion.module.ts`, `showtime.module.ts`, `ticket.module.ts`
-- `booking.module.ts`, `payment.module.ts`, `notification.module.ts`
-
-> [!IMPORTANT]
-> Không có entity nào bị sửa đổi. Tất cả entity giữ nguyên như ban đầu.
+1. **Khởi tạo dữ liệu (Admin):** Đăng nhập quyền Admin -> Thêm Phim -> Tạo Rạp & Phòng chiếu -> Thiết lập giá vé -> Tạo suất chiếu.
+2. **Đặt vé trực tuyến (Customer):** Khách hàng đăng ký/đăng nhập -> Chọn phim & khung giờ -> Chọn ghế (Kiểm tra cơ chế lock 5 phút và cập nhật real-time ở tab khác) -> Chọn bắp nước -> Thanh toán Sandbox (MoMo/VNPay).
+3. **Nhận vé:** Kiểm tra hộp thư Email để nhận E-Ticket (Mã QR).
+4. **Soát vé (Staff):** Nhân viên mở trang Kiểm duyệt -> Quét mã QR từ màn hình khách hàng -> Hệ thống báo thành công (Quét lại sẽ báo vé đã sử dụng).
