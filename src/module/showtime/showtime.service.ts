@@ -572,11 +572,16 @@ export class ShowtimeService {
   }
 
   async getByCinemaId(cinemaId: number): Promise<ApiResponse<any>> {
+    const now = new Date();
     const showtimes = await this.showtimeRepository
       .createQueryBuilder('showtime')
       .leftJoinAndSelect('showtime.movie', 'movie')
       .leftJoinAndSelect('showtime.room', 'room')
       .where('room.cinemaId = :cinemaId', { cinemaId })
+      .andWhere('showtime.publicStartTime >= :now', { now })
+      .andWhere('showtime.status IN (:...statuses)', {
+        statuses: [EShowtimeStatus.SCHEDULED, EShowtimeStatus.ACTIVE],
+      })
       .orderBy('showtime.publicStartTime', 'ASC')
       .getMany();
 
