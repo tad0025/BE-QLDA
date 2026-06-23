@@ -655,7 +655,7 @@ export class PaymentService {
         subject: 'Đặt vé thành công!',
         content: `Đơn hàng ${booking.bookingCode} đã được thanh toán. Vé của bạn đã sẵn sàng. Vào mục "Vé của tôi" để xem.`,
         type: ENotificationType.TICKET_CONFIRM,
-        link: '/profile',
+        link: '/booking-history',
       });
     } catch (err) {
       this.logger.error(`Post-payment actions failed for booking ${booking.id}`, err);
@@ -687,7 +687,7 @@ export class PaymentService {
       subject: 'Thanh toán thất bại',
       content: `Đơn hàng ${booking.bookingCode} đã bị hủy do thanh toán thất bại. Vui lòng thử lại.${booking.pointsUsed > 0 ? ` Điểm tích lũy đã được hoàn trả (${booking.pointsUsed.toLocaleString()} điểm).` : ''}`,
       type: ENotificationType.PAYMENT_FAILED,
-      link: '/profile',
+      link: '/booking-history',
     });
   }
 
@@ -756,7 +756,7 @@ export class PaymentService {
           subject: 'Đơn hàng hết hạn',
           content: expireContent,
           type: ENotificationType.PAYMENT_FAILED,
-          link: '/profile',
+          link: '/booking-history',
         });
 
         this.logger.log(`Booking ${booking.bookingCode} expired and released`);
