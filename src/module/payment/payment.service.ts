@@ -15,7 +15,7 @@ import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
 
 import { EPaymentStatus, EPaymentMethod, EPaymentChannel } from './enums/payment.enum';
-import { EBookingStatus, ESeatHoldStatus } from '../booking/enums/booking.enum';
+import { EBookingStatus, ESeatHoldStatus, EBookingSource } from '../booking/enums/booking.enum';
 import { ENotificationType } from '../notification/enums/notification.enum';
 
 import { MomoService } from './services/momo.service';
@@ -70,6 +70,7 @@ export class PaymentService {
         'seatHolds', 'seatHolds.seat', 'seatHolds.seat.room',
         'bookingConcessions', 'bookingConcessions.product',
         'promotion',
+        'user'
       ],
     });
 
@@ -77,7 +78,7 @@ export class PaymentService {
       throw new CustomException(HttpStatus.NOT_FOUND, 'BOOKING_NOT_FOUND', 'Không tìm thấy đơn đặt vé');
     }
 
-    if (booking.userId !== userId) {
+    if (booking.userId !== userId && booking.staffId !== userId) {
       throw new CustomException(HttpStatus.FORBIDDEN, 'FORBIDDEN', 'Bạn không có quyền xem đơn này');
     }
 
@@ -135,6 +136,9 @@ export class PaymentService {
       } : null,
       expiredAt: booking.expiredAt,
       secondsRemaining,
+      customerId: booking.userId,
+      customerName: booking.user?.fullName || booking.user?.email || null,
+      loyaltyPoints: booking.user?.loyaltyPoints || 0,
     });
   }
 
@@ -156,7 +160,7 @@ export class PaymentService {
       throw new CustomException(HttpStatus.NOT_FOUND, 'BOOKING_NOT_FOUND', 'Không tìm thấy đơn đặt vé');
     }
 
-    if (booking.userId !== userId) {
+    if (booking.userId !== userId && booking.staffId !== userId) {
       throw new CustomException(HttpStatus.FORBIDDEN, 'FORBIDDEN', 'Bạn không có quyền thanh toán đơn này');
     }
 
@@ -200,6 +204,18 @@ export class PaymentService {
         payUrl = result.approveUrl;
         gatewayOrderId = result.paypalOrderId;
         break;
+      }
+
+      case EPaymentMethod.CASH: {
+        if (booking.source !== EBookingSource.OFFLINE) {
+          throw new CustomException(HttpStatus.BAD_REQUEST, 'INVALID_PAYMENT_METHOD', 'Thanh toán tiền mặt chỉ áp dụng tại quầy');
+        }
+        await this.confirmPaymentSuccess(booking, EPaymentMethod.CASH, `CASH-${Date.now()}`);
+        return new ApiResponse(true, 'Thanh toán tiền mặt thành công', {
+          bookingId: booking.id,
+          payUrl: '',
+          paymentRequired: false,
+        });
       }
 
       default:

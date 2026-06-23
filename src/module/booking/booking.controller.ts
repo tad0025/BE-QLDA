@@ -12,7 +12,7 @@ import { EUserRole } from '../users/enums/user.enum';
 
 @Controller('bookings')
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(private readonly bookingService: BookingService) { }
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -37,6 +37,22 @@ export class BookingController {
   @HttpCode(HttpStatus.CREATED)
   async createBooking(@Request() req, @Body() dto: CreateBookingDto) {
     return this.bookingService.createBooking(req.user.id, dto);
+  }
+
+  @Post('staff/hold-seats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN, EUserRole.STAFF)
+  @HttpCode(HttpStatus.OK)
+  async staffHoldSeats(@Request() req, @Body() dto: HoldSeatsDto) {
+    return this.bookingService.staffHoldSeats(req.user.id, dto);
+  }
+
+  @Post('staff')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN, EUserRole.STAFF)
+  @HttpCode(HttpStatus.CREATED)
+  async staffCreateBooking(@Request() req, @Body() dto: CreateBookingDto) {
+    return this.bookingService.staffCreateBooking(req.user.id, dto);
   }
 
   @Put(':id/concessions')
