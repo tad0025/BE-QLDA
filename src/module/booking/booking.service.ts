@@ -21,8 +21,7 @@ import { ENotificationType } from '../notification/enums/notification.enum';
 import { User } from '../users/entities/user.entity';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-/** Tỷ lệ tích điểm: 10% tổng tiền đơn hàng. 100.000đ → 10.000 điểm. */
-const LOYALTY_EARN_RATE = 0.10;
+
 /** Giá trị mỗi điểm theo VNĐ khi tiêu. 1 điểm = 1 VNĐ. */
 const LOYALTY_POINT_VALUE = 1;
 /** Giới hạn giảm giá tối đa bằng điểm: 20% tổng đơn. */
@@ -33,8 +32,7 @@ export class BookingService {
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
-    @InjectRepository(BookingConcession)
-    private readonly bookingConcessionRepository: Repository<BookingConcession>,
+
     @InjectRepository(SeatHold)
     private readonly seatHoldRepository: Repository<SeatHold>,
     @InjectRepository(Seat)

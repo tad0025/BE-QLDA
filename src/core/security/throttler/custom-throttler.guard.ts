@@ -7,8 +7,8 @@ import { CustomException } from '../../exceptions/custom.exception';
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
   protected async throwThrottlingException(
-    context: ExecutionContext,
-    throttlerLimitDetail: any,
+    _context: ExecutionContext,
+    _throttlerLimitDetail: any,
   ): Promise<void> {
     throw new CustomException(
       HttpStatus.TOO_MANY_REQUESTS,

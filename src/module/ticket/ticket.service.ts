@@ -10,7 +10,7 @@ import {
 } from './dto/ticket-price.dto';
 import { ApiResponse } from '../../core/dto/ApiResponse.dto';
 import { CustomException } from '../../core/exceptions/custom.exception';
-import { Seat } from '../cinema/entities/seat.entity';
+
 import { Booking } from '../booking/entities/booking.entity';
 import { SeatHold } from '../booking/entities/seat-hold.entity';
 import { ETicketStatus } from './enums/ticket.enum';
@@ -26,8 +26,7 @@ export class TicketService {
     private readonly ticketPriceRepository: Repository<TicketPrice>,
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
-    @InjectRepository(Seat)
-    private readonly seatRepository: Repository<Seat>,
+
     @InjectRepository(SeatHold)
     private readonly seatHoldRepository: Repository<SeatHold>,
     private readonly redisService: RedisService,
