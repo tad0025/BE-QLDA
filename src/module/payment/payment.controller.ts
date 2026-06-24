@@ -1,7 +1,6 @@
 import {
   Controller, Get, Post, Body, Param, ParseIntPipe,
   UseGuards, HttpCode, HttpStatus, Request, Req, Res, Query,
-  Headers, RawBodyRequest,
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { CreatePaymentUrlDto } from './dto/create-payment-url.dto';

@@ -31,7 +31,7 @@ import * as QRCode from 'qrcode';
 /** Tỷ lệ tích điểm: 10% tổng tiền đơn hàng sau khi thanh toán. 100.000đ → 10.000 điểm. */
 const LOYALTY_EARN_RATE = 0.10;
 
-const BOOKING_TIMEOUT_MS = 5 * 60 * 1000; // 5 phút – đồng bộ với Redis hold TTL
+
 
 @Injectable()
 export class PaymentService {
@@ -44,8 +44,7 @@ export class PaymentService {
     private readonly bookingRepository: Repository<Booking>,
     @InjectRepository(SeatHold)
     private readonly seatHoldRepository: Repository<SeatHold>,
-    @InjectRepository(BookingConcession)
-    private readonly bookingConcessionRepository: Repository<BookingConcession>,
+
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectDataSource()

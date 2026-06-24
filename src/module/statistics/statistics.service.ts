@@ -25,11 +25,22 @@ export class StatisticsService {
     private cinemaRepository: Repository<Cinema>,
   ) {}
 
-  async getRevenueStatistics(timeFrame: 'day' | 'week' | 'month' | 'year'): Promise<ApiResponse<any>> {
+  async getRevenueStatistics(
+    timeFrame: 'day' | 'week' | 'month' | 'year',
+    year?: number,
+    month?: number,
+  ): Promise<ApiResponse<any>> {
     try {
       const queryBuilder = this.bookingRepository.createQueryBuilder('booking')
         .select('SUM(booking.totalAmount)', 'totalRevenue')
         .where('booking.status = :status', { status: EBookingStatus.PAID });
+
+      if (year) {
+        queryBuilder.andWhere('YEAR(booking.createdAt) = :year', { year });
+      }
+      if (month) {
+        queryBuilder.andWhere('MONTH(booking.createdAt) = :month', { month });
+      }
 
       let groupByFormat = '';
       let selectFormat = '';
@@ -85,14 +96,14 @@ export class StatisticsService {
         .leftJoin('movie.showtimes', 'showtime')
         .leftJoin('showtime.tickets', 'ticket', 'ticket.status != :ticketStatus', { ticketStatus: 'CANCELLED' })
         .leftJoin('ticket.booking', 'booking', 'booking.status = :bookingStatus', { bookingStatus: EBookingStatus.PAID })
-        .select([
-          'movie.id AS id',
-          'movie.title AS title',
-          'movie.poster AS poster',
-        ])
+        .select('movie.id', 'id')
+        .addSelect('movie.title', 'title')
+        .addSelect('movie.posterUrl', 'poster')
         .addSelect('COUNT(ticket.id)', 'ticketsSold')
         .addSelect('SUM(ticket.price)', 'revenue')
         .groupBy('movie.id')
+        .addGroupBy('movie.title')
+        .addGroupBy('movie.posterUrl')
         .orderBy('ticketsSold', 'DESC')
         .getRawMany();
 
@@ -134,6 +145,7 @@ export class StatisticsService {
 
       return new ApiResponse(true, 'Lấy thống kê hiệu suất phim thành công', performanceData);
     } catch (error) {
+      console.error('getMoviePerformance Error: ', error);
       throw new CustomException(
         HttpStatus.INTERNAL_SERVER_ERROR,
         'STATISTICS_ERROR',
@@ -144,10 +156,11 @@ export class StatisticsService {
 
   async getSummary(): Promise<ApiResponse<any>> {
     try {
-      const { totalRevenue } = await this.bookingRepository.createQueryBuilder('booking')
+      const rawRevenue = await this.bookingRepository.createQueryBuilder('booking')
         .select('SUM(booking.totalAmount)', 'totalRevenue')
         .where('booking.status = :status', { status: EBookingStatus.PAID })
         .getRawOne();
+      const totalRevenue = rawRevenue ? rawRevenue.totalRevenue : 0;
 
       const totalTickets = await this.ticketRepository.count({
         where: { booking: { status: EBookingStatus.PAID } },

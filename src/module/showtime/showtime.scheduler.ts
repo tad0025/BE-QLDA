@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, In, Not } from 'typeorm';
+import { Repository, LessThanOrEqual, In } from 'typeorm';
 import { Showtime } from './entities/showtime.entity';
 import { Movie } from '../movie/entities/movie.entity';
 import { EShowtimeStatus } from './enums/EShowTimeStatus.enum';
